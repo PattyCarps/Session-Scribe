@@ -1,0 +1,1613 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Session Scribe</title>
+<meta name="description" content="Free session notes for tabletop campaigns.">
+<meta name="theme-color" content="#11161a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Scribe">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral+SC:wght@600&family=Spectral:ital@0;1&family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Phone-first: sticky header (world › campaign › arc + session + clock), one scrolling view, fixed bottom tab bar. Dark-first for night play. */
+:root{
+  --bg:#11161a; --surface:#182026; --raised:#1f2930; --line:#2b363e;
+  --fg:#e7e3d9; --muted:#95a3ab; --accent:#3fb8a9; --accent-ink:#0c1a18;
+  --ember:#e38a4c; --danger:#e0645a; --live:#e0645a;
+  --t-plot:#e38a4c; --t-npc:#3fb8a9; --t-place:#c9a25a; --t-loot:#e2c65c; --t-quest:#7fb3e6;
+  --t-lore:#b393e0; --t-combat:#e0645a; --t-quote:#d9d4c7; --t-ruling:#8e9ca4; --t-hook:#6fd0a0;
+  --f-display:"Spectral SC", "Palatino Linotype", Georgia, serif;
+  --f-read:"Spectral", Georgia, serif;
+  --f-body:"Atkinson Hyperlegible", -apple-system, system-ui, "Segoe UI", sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+  --gut-l:max(16px, env(safe-area-inset-left, 0px)); --gut-r:max(16px, env(safe-area-inset-right, 0px));
+  color-scheme:dark;
+}
+@media (prefers-color-scheme: light){ :root{
+  --bg:#eef2f1; --surface:#ffffff; --raised:#f5f8f7; --line:#d3dcdb;
+  --fg:#1a2328; --muted:#566670; --accent:#137a6f; --accent-ink:#ffffff;
+  --ember:#b0581c; --danger:#b9372d; --live:#c4382c;
+  --t-plot:#b0581c; --t-npc:#137a6f; --t-place:#8c6a1f; --t-loot:#9a7d0f; --t-quest:#2f6fae;
+  --t-lore:#7350ad; --t-combat:#b9372d; --t-quote:#4d5a61; --t-ruling:#6c7a82; --t-hook:#1f8a58;
+  color-scheme:light; } }
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:16px;line-height:1.5;display:flex;flex-direction:column;overscroll-behavior-y:none}
+button,input,textarea,select{font:inherit;color:inherit}
+input,textarea,select{font-size:16px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+[hidden]{display:none!important}
+
+header.top{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line);padding-top:calc(env(safe-area-inset-top, 0px) + 10px);padding-bottom:10px;padding-left:var(--gut-l);padding-right:var(--gut-r);display:flex;align-items:center;gap:12px}
+.top .who{flex:1;min-width:0;background:none;border:0;text-align:left;padding:0;cursor:pointer}
+.top .camp{display:block;font-family:var(--f-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.top .sess{display:block;font-family:var(--f-display);font-weight:600;font-size:20px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.top .clockwrap{display:flex;align-items:center;gap:8px;flex:none}
+.top .clock{font-family:var(--f-mono);font-size:17px;font-variant-numeric:tabular-nums}
+.top .clock.idle{color:var(--muted)}
+.livedot{width:10px;height:10px;border-radius:50%;background:var(--live);animation:pulse 1.6s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--live) 60%,transparent)}70%{box-shadow:0 0 0 9px transparent}100%{box-shadow:0 0 0 0 transparent}}
+
+main{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-top:16px;padding-bottom:calc(env(safe-area-inset-bottom, 0px) + 96px);padding-left:var(--gut-l);padding-right:var(--gut-r)}
+.view{display:flex;flex-direction:column;gap:14px;max-width:760px;margin:0 auto;width:100%}
+
+nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--surface);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(5,1fr);padding-bottom:env(safe-area-inset-bottom, 0px);padding-left:env(safe-area-inset-left, 0px);padding-right:env(safe-area-inset-right, 0px)}
+nav.tabs button{background:none;border:0;padding:9px 2px 8px;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;font-weight:700;color:var(--muted);cursor:pointer;position:relative}
+nav.tabs button svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+nav.tabs button[aria-selected="true"]{color:var(--accent)}
+nav.tabs .badge{position:absolute;top:6px;right:calc(50% - 20px);width:8px;height:8px;border-radius:50%;background:var(--live)}
+
+h2.title{font-family:var(--f-display);font-weight:600;font-size:26px;line-height:1.15;margin:0;text-wrap:balance;overflow-wrap:anywhere}
+.lbl{font-family:var(--f-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.help{color:var(--muted);margin:0;font-size:15px}
+.help b{color:var(--fg)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:12px}
+.card > strong{font-size:17px}
+.row{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.field{display:flex;flex-direction:column;gap:5px;min-width:0}
+.inp,.ta{background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:11px 12px;width:100%;min-width:0}
+.card .inp,.card .ta{background:var(--bg)}
+.inp:focus,.ta:focus{border-color:var(--accent);outline:none}
+.ta{resize:vertical;min-height:120px;font-family:var(--f-mono);font-size:14px;line-height:1.5}
+.ta.read{font-family:var(--f-read);font-size:16px;line-height:1.6;min-height:320px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid var(--line);background:var(--raised);border-radius:9px;padding:11px 16px;cursor:pointer;font-weight:700;font-size:15px;white-space:nowrap;min-height:44px;text-decoration:none;color:inherit}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.ghost{background:none}
+.btn.sm{min-height:36px;padding:6px 12px;font-size:14px}
+.btn.danger{color:var(--danger)}
+.btn.armed{background:var(--danger);border-color:var(--danger);color:#fff}
+.btn.block{width:100%}
+.btn.rec{background:var(--live);border-color:var(--live);color:#fff}
+.btn:disabled,.btn.disabled{opacity:.5;pointer-events:none}
+.meta{font-family:var(--f-mono);font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.msg.err{color:var(--danger)}
+.msg.ok{color:var(--accent)}
+.grow{flex:1;min-width:0}
+.steps{display:flex;flex-direction:column;gap:12px;margin:0;padding:0;list-style:none;counter-reset:st}
+.steps > li{display:grid;grid-template-columns:28px minmax(0,1fr);gap:10px;align-items:start;counter-increment:st}
+.steps > li::before{content:counter(st);width:28px;height:28px;border-radius:50%;background:var(--raised);border:1px solid var(--line);display:grid;place-items:center;font-family:var(--f-mono);font-size:13px;color:var(--accent)}
+.steps > li > div{display:flex;flex-direction:column;gap:8px;min-width:0}
+
+/* table log */
+.tags{display:flex;flex-wrap:wrap;gap:7px}
+.tag{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:7px 12px;font-size:14px;font-weight:700;cursor:pointer;min-height:36px}
+.tag .dot{width:9px;height:9px;border-radius:50%;background:var(--c)}
+.tag[aria-pressed="true"]{border-color:var(--c);background:color-mix(in srgb, var(--c) 18%, var(--surface))}
+.entry{display:flex;gap:8px}
+.entry .inp{flex:1}
+.log{list-style:none;margin:0;padding:0}
+.log li{display:grid;grid-template-columns:48px minmax(0,1fr) 36px;column-gap:10px;padding:10px 0;border-bottom:1px solid var(--line);align-items:start}
+.log .ts{font-family:var(--f-mono);font-size:12px;color:var(--muted);padding-top:3px;font-variant-numeric:tabular-nums}
+.log .tg{display:block;font-family:var(--f-mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--c)}
+.log .tx{overflow-wrap:anywhere}
+.log .x{background:none;border:0;color:var(--muted);cursor:pointer;min-height:36px;border-radius:6px}
+.empty{border:1px dashed var(--line);border-radius:12px;padding:16px;color:var(--muted)}
+.empty b{color:var(--fg)}
+details.more summary{cursor:pointer;font-weight:700;padding:6px 0;list-style:none}
+details.more summary::-webkit-details-marker{display:none}
+details.more summary::before{content:"▸ ";color:var(--muted)}
+details.more[open] summary::before{content:"▾ "}
+
+/* listen */
+.recbox{display:flex;flex-direction:column;align-items:center;gap:8px;padding:20px 16px}
+.recbtn{width:96px;height:96px;border-radius:50%;border:2px solid var(--line);background:var(--raised);display:grid;place-items:center;cursor:pointer}
+.recbtn span{width:34px;height:34px;border-radius:50%;background:var(--live);transition:border-radius .15s,width .15s,height .15s}
+.recbtn.on{border-color:var(--live)}
+.recbtn.on span{width:30px;height:30px;border-radius:6px}
+.big{font-family:var(--f-mono);font-size:28px;font-variant-numeric:tabular-nums}
+.interim{font-family:var(--f-read);font-style:italic;color:var(--muted);min-height:1.5em;max-width:46ch}
+.feed{font-family:var(--f-mono);font-size:13px;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere;max-height:280px;overflow-y:auto;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px}
+.toggle{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.switch{position:relative;width:52px;height:32px;flex:none}
+.switch input{position:absolute;inset:0;opacity:0;margin:0;cursor:pointer}
+.switch span{position:absolute;inset:0;border-radius:999px;background:var(--line);transition:background .15s}
+.switch span::after{content:"";position:absolute;top:3px;left:3px;width:26px;height:26px;border-radius:50%;background:#fff;transition:transform .15s}
+.switch input:checked + span{background:var(--accent)}
+.switch input:checked + span::after{transform:translateX(20px)}
+.switch input:focus-visible + span{outline:2px solid var(--accent);outline-offset:2px}
+.bar{height:8px;border-radius:999px;background:var(--line);overflow:hidden}
+.bar span{display:block;height:100%;width:0;background:var(--accent);transition:width .3s}
+
+/* notes */
+.sec h3{font-family:var(--f-display);font-weight:600;font-size:18px;color:var(--accent);margin:0 0 8px;padding-bottom:4px;border-bottom:1px solid var(--line);display:flex;gap:8px;align-items:baseline}
+.sec h3 .c{font-family:var(--f-mono);font-size:11px;color:var(--muted);font-weight:400}
+.prose{font-family:var(--f-read);font-size:17px;line-height:1.65}
+.prose p{margin:0 0 .8em}
+.items{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.items li{display:flex;gap:9px;align-items:baseline}
+.items li::before{content:"";flex:none;width:6px;height:6px;border-radius:50%;background:var(--muted);transform:translateY(-2px)}
+.items li.major::before{background:var(--ember);width:8px;height:8px}
+.items .nm{font-weight:700}
+.pill{font-family:var(--f-mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;border:1px solid currentColor;border-radius:999px;padding:0 6px;flex:none;line-height:1.7;margin-left:auto;white-space:nowrap}
+.pill.new,.pill.opened,.pill.active{color:var(--accent)} .pill.returning,.pill.planned,.pill.update{color:var(--muted)} .pill.advanced{color:var(--t-quest)} .pill.resolved,.pill.complete{color:var(--t-hook)} .pill.dead{color:var(--danger)} .pill.missing{color:var(--t-place)}
+.quote{font-family:var(--f-read);font-style:italic}
+.player{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.fallback{width:100%;min-height:140px;font-family:var(--f-mono);font-size:12px;background:var(--surface);border:1px solid var(--accent);border-radius:9px;padding:10px}
+.review{display:flex;flex-direction:column;gap:14px}
+.rgroup{display:flex;flex-direction:column;gap:2px}
+.rgroup .lbl{margin-bottom:4px}
+.ritem{display:grid;grid-template-columns:24px minmax(0,1fr);gap:10px;align-items:start;padding:8px 0;border-bottom:1px solid var(--line);cursor:pointer}
+.ritem input{width:20px;height:20px;margin:2px 0 0;accent-color:var(--accent)}
+.ritem .rt{font-weight:700;display:flex;gap:8px;align-items:baseline}
+.ritem .rd{font-size:14px;color:var(--muted);overflow-wrap:anywhere}
+
+/* library */
+.crumbs{display:flex;flex-wrap:wrap;align-items:center;gap:2px 4px;font-size:14px}
+.crumbs button{background:none;border:0;padding:4px 2px;color:var(--accent);font-weight:700;cursor:pointer;max-width:42vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.crumbs span{color:var(--muted)}
+.eyebrow{font-family:var(--f-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+.lsec{display:flex;flex-direction:column;gap:6px}
+.lsec .lhead{display:flex;flex-wrap:wrap;align-items:center;gap:8px;border-bottom:1px solid var(--line);padding-bottom:6px}
+.lsec .lhead h3{font-family:var(--f-display);font-weight:600;font-size:18px;margin:0;flex:1;min-width:0}
+.lsec .lhead .c{font-family:var(--f-mono);font-size:11px;color:var(--muted);font-weight:400;margin-left:6px}
+.rows{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.rows > li > button{width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--line);padding:11px 2px;display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:10px;row-gap:1px;align-items:baseline;cursor:pointer}
+.rows .t{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rows .t .n{font-family:var(--f-mono);font-weight:400;color:var(--muted);font-size:13px;margin-right:8px}
+.rows .r{font-size:13px;color:var(--muted);white-space:nowrap}
+.rows .s{grid-column:1 / -1;font-size:13px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rows li[aria-current="true"] .t{color:var(--accent)}
+.rows .muted{color:var(--muted);font-size:14px;padding:10px 2px}
+.worlds{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.wcard{text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;cursor:pointer;display:flex;flex-direction:column;gap:4px;min-width:0}
+.wcard .wn{font-family:var(--f-display);font-weight:600;font-size:22px;line-height:1.15;overflow-wrap:anywhere}
+.wcard .ws{font-size:13px;color:var(--muted)}
+.wcard.cur{border-color:var(--accent)}
+.story{font-family:var(--f-read);font-size:16px;line-height:1.6;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;white-space:pre-wrap}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom, 0px) + 78px);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:700;font-size:14px;z-index:9;max-width:calc(100% - 32px);text-align:center}
+@media (min-width: 760px){ nav.tabs{max-width:760px;margin:0 auto;border-left:1px solid var(--line);border-right:1px solid var(--line);border-radius:14px 14px 0 0} }
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<header class="top">
+  <button class="who" id="who" type="button" aria-label="Open this session's campaign">
+    <span class="camp" id="hCamp">Session Scribe</span>
+    <span class="sess" id="hSess">Welcome</span>
+  </button>
+  <div class="clockwrap"><span class="livedot" id="hLive" hidden></span><span class="clock idle" id="hClock">0:00:00</span></div>
+</header>
+
+<main id="main">
+  <!-- ONBOARDING -->
+  <section class="view" id="v-start" hidden>
+    <h2 class="title">Set up your table</h2>
+    <p class="help">Worlds hold your setting's lore. Campaigns inside a world hold their own lore, player characters, NPCs, arcs and sessions. Run as many as you like, even several campaigns in one world. Everything is free and stays on this phone.</p>
+    <div class="card">
+      <label class="field"><span class="lbl">World</span><input class="inp" id="obWorld" placeholder="The Forgotten Realms"></label>
+      <label class="field"><span class="lbl">First campaign in it</span><input class="inp" id="obCamp" placeholder="Curse of Strahd"></label>
+      <button class="btn primary block" id="obCreate" type="button">Create</button>
+      <button class="btn ghost block" id="obCancel" type="button" hidden>Cancel</button>
+    </div>
+    <div class="row"><span class="help grow">Have a world or campaign file from someone?</span><label class="btn ghost">Import file<input type="file" id="obImport" accept=".json,application/json" hidden></label></div>
+  </section>
+
+  <!-- TABLE -->
+  <section class="view" id="v-table" hidden>
+    <details class="more" id="sDetails">
+      <summary>Session details</summary>
+      <div class="card" style="margin-top:8px">
+        <label class="field"><span class="lbl">Title</span><input class="inp" id="sTitle" placeholder="Untitled session"></label>
+        <div class="row">
+          <label class="field" style="width:90px"><span class="lbl">No.</span><input class="inp" id="sNum" type="number" inputmode="numeric"></label>
+          <label class="field grow"><span class="lbl">Date</span><input class="inp" id="sDate" type="date"></label>
+        </div>
+        <label class="field"><span class="lbl">Arc</span><select class="inp" id="sArc"></select></label>
+        <button class="btn danger" id="sDel" type="button">Delete session</button>
+      </div>
+    </details>
+    <div class="row">
+      <button class="btn" id="clockBtn" type="button">Start clock</button>
+      <span class="meta grow" id="clockMeta"></span>
+    </div>
+    <div class="tags" id="tagBar" role="group" aria-label="Tag for the next entry"></div>
+    <form class="entry" id="entryForm" autocomplete="off">
+      <input class="inp" id="entryInp" placeholder="What just happened?" enterkeyhint="send">
+      <button class="btn primary" type="submit">Log</button>
+    </form>
+    <p class="help" id="tagHint"></p>
+    <ul class="log" id="log"></ul>
+  </section>
+
+  <!-- LISTEN -->
+  <section class="view" id="v-listen" hidden>
+    <div class="card recbox">
+      <button class="recbtn" id="recBtn" type="button" aria-label="Start recording"><span></span></button>
+      <strong id="recState">Record the session</strong>
+      <span class="big" id="recTime">0:00:00</span>
+      <span class="meta msg" id="recMeta"></span>
+    </div>
+    <p class="help">Put the phone in the middle of the table, plugged in, with the app open. Set Auto-Lock to <b>Never</b> for the session (Settings → Display &amp; Brightness): recording pauses if the screen locks. The audio is saved in small pieces as you go, so any length works.</p>
+
+    <div class="card">
+      <strong>Transcribe with Whisper</strong>
+      <p class="help" id="wHelp">Runs on this phone, free and private. The first time, it downloads the Whisper model you picked in Settings.</p>
+      <div class="row"><button class="btn primary" id="wRun" type="button">Transcribe recording</button><button class="btn" id="wStop" type="button" hidden>Stop after this part</button></div>
+      <div class="bar" id="wBar" hidden><span id="wFill"></span></div>
+      <span class="meta msg" id="wMeta"></span>
+      <div class="row"><span class="meta grow" id="audioMeta"></span><button class="btn sm danger" id="audioDel" type="button" hidden>Delete recording</button></div>
+    </div>
+
+    <div class="card">
+      <strong>Upload a recording</strong>
+      <p class="help">Transcribe a file with Whisper on this phone. MP3 and WAV work at any length. M4A (Voice Memos) works best under about an hour; for longer ones, record here instead or export as MP3.</p>
+      <div class="row"><label class="btn" id="upPick">Choose audio file<input type="file" id="upFile" accept="audio/*,.mp3,.wav,.m4a,.mp4,.webm,.aac" hidden></label></div>
+    </div>
+
+    <details class="more">
+      <summary>Live captions instead</summary>
+      <div class="card" style="margin-top:8px">
+        <p class="help">Uses the iPhone's built-in speech recognition to write the transcript as you play. Quicker but less accurate than Whisper, and it can't run while you're recording, so pick one per session.</p>
+        <div class="row"><button class="btn" id="micBtn" type="button">Start live captions</button><span class="meta grow msg" id="micState"></span></div>
+        <div class="interim" id="interim"></div>
+      </div>
+    </details>
+
+    <div class="row"><span class="lbl grow">Transcript</span><span class="meta" id="trCount"></span></div>
+    <div class="feed" id="feed"></div>
+    <details class="more">
+      <summary>Edit or paste a transcript</summary>
+      <div class="view" style="margin-top:8px">
+        <p class="help">Already have a transcript (from Voice Memos, Buzz, or anything else)? Paste it here or choose a .txt, .vtt or .srt file. Timestamps and caption numbers are cleaned up automatically.</p>
+        <textarea class="ta" id="trEdit" style="min-height:220px" spellcheck="false"></textarea>
+        <div class="row"><button class="btn" id="trSave" type="button">Save transcript</button><label class="btn ghost">Choose file<input type="file" id="trFile" accept=".txt,.vtt,.srt,.md,text/plain" hidden></label></div>
+      </div>
+    </details>
+  </section>
+
+  <!-- NOTES -->
+  <section class="view" id="v-notes" hidden>
+    <div id="notesEx"></div>
+    <div id="notesOut" class="view"></div>
+  </section>
+
+  <!-- LIBRARY (rendered by script) -->
+  <section class="view" id="v-library" hidden></section>
+
+  <!-- SETTINGS -->
+  <section class="view" id="v-settings" hidden>
+    <h2 class="title">Settings</h2>
+    <div class="card">
+      <strong>Whisper model</strong>
+      <p class="help">Bigger models are more accurate but download more and take longer. Small is the best balance for a busy table on a recent iPhone. Models download once and stay on this phone.</p>
+      <label class="field"><span class="lbl">Model</span><select class="inp" id="wModel"></select></label>
+      <label class="field"><span class="lbl">Run on</span><select class="inp" id="wEngine"><option value="auto">Automatic · graphics chip when available</option><option value="gpu">Graphics chip only</option><option value="cpu">Processor only · slower, most compatible</option></select></label>
+      <div class="row"><button class="btn" id="wDownload" type="button">Download model now</button><span class="meta grow msg" id="wDlMeta"></span></div>
+      <div class="bar" id="wDlBar" hidden><span id="wDlFill"></span></div>
+      <span class="meta" id="storeMeta"></span>
+      <div class="row"><button class="btn sm danger" id="wClear" type="button">Remove downloaded models</button></div>
+    </div>
+    <div class="card">
+      <strong>How notes work</strong>
+      <p class="help">Notes are written by Claude through copy and paste, so nobody needs an API key or a paid plan. On the Notes tab, tap <b>Copy for Claude</b>, paste into the Claude app (a free account works), then paste Claude's reply back. The app files the recap, NPCs, characters, lore and arc story for you.</p>
+    </div>
+    <div class="card">
+      <strong>Backup</strong>
+      <p class="help">Everything lives on this phone. Back up now and then, or before switching phones. Recordings aren't included in backups; transcribe them first.</p>
+      <div class="row"><button class="btn" id="bExport" type="button">Back up everything</button><label class="btn ghost">Restore or import<input type="file" id="bImport" accept=".json,application/json" hidden></label></div>
+      <label class="field"><span class="lbl">Live captions language</span><select class="inp" id="lang"><option value="en-US">English (US)</option><option value="en-GB">English (UK)</option><option value="en-AU">English (Australia)</option><option value="en-CA">English (Canada)</option><option value="es-US">Español (US)</option></select></label>
+    </div>
+    <p class="meta">Session Scribe · free · data stays on this device</p>
+  </section>
+</main>
+
+<nav class="tabs" id="tabs" role="tablist">
+  <button type="button" data-v="table" role="tab"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Table</button>
+  <button type="button" data-v="listen" role="tab"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>Listen<span class="badge" id="navLive" hidden></span></button>
+  <button type="button" data-v="notes" role="tab"><svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/></svg>Notes</button>
+  <button type="button" data-v="library" role="tab"><svg viewBox="0 0 24 24"><path d="M4 19V5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2 2 2 0 0 0 2 2h13"/><path d="M9 7h6"/></svg>Library</button>
+  <button type="button" data-v="settings" role="tab"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></svg>Settings</button>
+</nav>
+
+<script>
+(() => {
+"use strict";
+const $ = id => document.getElementById(id);
+const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
+const btn = (label, cls, fn) => { const b = el("button", "btn " + (cls || ""), label); b.type = "button"; if (fn) b.onclick = fn; return b; };
+
+const TAGS = [
+  {k:"plot",label:"Plot",c:"--t-plot"},{k:"npc",label:"NPC",c:"--t-npc"},{k:"place",label:"Place",c:"--t-place"},
+  {k:"loot",label:"Loot",c:"--t-loot"},{k:"quest",label:"Quest",c:"--t-quest"},{k:"lore",label:"Lore",c:"--t-lore"},
+  {k:"combat",label:"Combat",c:"--t-combat"},{k:"quote",label:"Quote",c:"--t-quote"},{k:"ruling",label:"Ruling",c:"--t-ruling"},{k:"hook",label:"Hook",c:"--t-hook"}];
+const TAGMAP = Object.fromEntries(TAGS.map(t => [t.k, t]));
+
+/* Whisper models (ONNX builds that run in the browser) */
+const TJS_URL = "https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.3.1";
+const MODELS = [
+  {k:"tiny",   id:"onnx-community/whisper-tiny.en",        label:"Tiny · fastest, least accurate",        size:"about 75 MB"},
+  {k:"base",   id:"onnx-community/whisper-base.en",        label:"Base · fast",                            size:"about 140 MB"},
+  {k:"small",  id:"onnx-community/whisper-small.en",       label:"Small · recommended",                    size:"about 250–400 MB"},
+  {k:"distil", id:"onnx-community/distil-small.en",        label:"Distil-Small · nearly as good, faster",  size:"about 170–330 MB"},
+  {k:"turbo",  id:"onnx-community/whisper-large-v3-turbo", label:"Large-v3 Turbo · most accurate, heaviest", size:"about 1 GB", big:true, multi:true},
+];
+const RATE = 16000, CHUNK_SEC = 30, WINDOW_SEC = 120;
+const PART_LIMIT = 300000; // characters per paste into Claude
+
+/* ---------- storage (IndexedDB, in-memory fallback) ---------- */
+const STORES = ["worlds","campaigns","arcs","sessions","kv","audio"];
+let persistentOK = true;
+const store = (() => {
+  let dbp = null, mem = null;
+  function open(){
+    if (!dbp) dbp = new Promise((res, rej) => {
+      if (!window.indexedDB) return rej(new Error("no idb"));
+      const r = indexedDB.open("session-scribe", 3);
+      r.onupgradeneeded = () => {
+        const d = r.result;
+        for (const n of STORES) if (!d.objectStoreNames.contains(n)) {
+          if (n === "kv") d.createObjectStore("kv");
+          else { const os = d.createObjectStore(n, {keyPath:"id"}); if (n === "audio") os.createIndex("session", "sessionId"); }
+        }
+      };
+      r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+    });
+    return dbp;
+  }
+  async function run(name, mode, fn){
+    try {
+      const d = await open();
+      return await new Promise((res, rej) => { const t = d.transaction(name, mode); const req = fn(t.objectStore(name)); t.oncomplete = () => res(req ? req.result : undefined); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error); });
+    } catch (e) {
+      if (e && e.name === "QuotaExceededError") throw e;
+      persistentOK = false;
+      mem = mem || Object.fromEntries(STORES.map(n => [n, new Map()]));
+      const m = mem[name];
+      return fn({ getAll:() => ({result:[...m.values()]}), get:k => ({result:m.get(k)}), put:(v,k) => { m.set(k ?? v.id, v); return {result:undefined}; }, delete:k => { m.delete(k); return {result:undefined}; },
+        index:() => ({ getAll:k => ({result:[...m.values()].filter(v => v.sessionId === k)}), getAllKeys:k => ({result:[...m.values()].filter(v => v.sessionId === k).map(v => v.id)}) }) }).result;
+    }
+  }
+  return {
+    all: n => run(n, "readonly", s => s.getAll()),
+    get: (n, k) => run(n, "readonly", s => s.get(k)),
+    put: (n, v, k) => run(n, "readwrite", s => k === undefined ? s.put(v) : s.put(v, k)),
+    del: (n, k) => run(n, "readwrite", s => s.delete(k)),
+    bySession: (n, sid) => run(n, "readonly", s => s.index("session").getAll(sid)),
+    keysBySession: (n, sid) => run(n, "readonly", s => s.index("session").getAllKeys(sid)),
+  };
+})();
+
+const S = {
+  worlds: new Map(), campaigns: new Map(), arcs: new Map(), sessions: new Map(),
+  sessId: null, view: "table", tag: "plot",
+  lib: {w:null, c:null, a:null, edit:null, q:""},
+  drafts: {}, reviews: {},
+  set: {wModel:"small", wEngine:"auto", lang:"en-US"},
+};
+const sess = () => S.sessions.get(S.sessId) || null;
+const ctxOf = s => { const c = s && S.campaigns.get(s.campaignId); const w = c && S.worlds.get(c.worldId); const a = s && s.arcId ? S.arcs.get(s.arcId) : null; return {c, w, a}; };
+const sessionsOf = cid => [...S.sessions.values()].filter(s => s.campaignId === cid).sort((a,b) => (Number(b.number)||0) - (Number(a.number)||0) || b.createdAt - a.createdAt);
+const campaignsOf = wid => [...S.campaigns.values()].filter(c => c.worldId === wid).sort((a,b) => a.createdAt - b.createdAt);
+const arcsOf = cid => [...S.arcs.values()].filter(a => a.campaignId === cid).sort((a,b) => (a.order ?? 0) - (b.order ?? 0) || a.createdAt - b.createdAt);
+const uid = p => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+
+const saveT = {};
+function saveSess(s, now){
+  if (!s) return; s.updatedAt = Date.now();
+  clearTimeout(saveT[s.id]);
+  const go = () => { delete saveT[s.id]; store.put("sessions", s).catch(() => toast("Couldn't save to this phone")); };
+  if (now) go(); else saveT[s.id] = setTimeout(go, 500);
+}
+const put = (name, obj) => { obj.updatedAt = Date.now(); return store.put(name, obj).catch(() => toast("Couldn't save to this phone")); };
+const saveSet = () => store.put("kv", S.set, "settings").catch(() => {});
+const saveActive = () => store.put("kv", {sessId:S.sessId}, "active").catch(() => {});
+
+/* ---------- helpers ---------- */
+function todayISO(){ const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
+function fmtDate(d){ if (!d) return ""; const [y,m,dd] = d.split("-").map(Number); return new Date(y, m-1, dd).toLocaleDateString([], {month:"short", day:"numeric", year:"numeric"}); }
+function fmtClock(ms){ const s = Math.max(0, Math.floor(ms/1000)); return `${Math.floor(s/3600)}:${String(Math.floor(s/60)%60).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`; }
+function fmtMin(sec){ const m = Math.floor(sec / 60); return `${Math.floor(m / 60)}:${String(m % 60).padStart(2, "0")}`; }
+function durTxt(sec){ const m = Math.round(sec / 60); return m >= 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${Math.max(1, m)} min`; }
+function stamp(s, at){ if (s.startedAt && at >= s.startedAt) return fmtMin((at - s.startedAt) / 1000); return new Date(at).toLocaleTimeString([], {hour:"numeric", minute:"2-digit"}); }
+const words = t => t && t.trim() ? t.trim().split(/\s+/).length : 0;
+const mb = n => n >= 1e9 ? (n / 1e9).toFixed(1) + " GB" : Math.round(n / 1e6) + " MB";
+function ago(t){ const m = Math.round((Date.now() - t)/60000); return m < 1 ? "just now" : m === 1 ? "1 minute ago" : m < 60 ? `${m} minutes ago` : new Date(t).toLocaleString([], {month:"short", day:"numeric", hour:"numeric", minute:"2-digit"}); }
+let toastT; function toast(t){ let e = $("toast"); if (!e) { e = el("div","toast"); e.id = "toast"; document.body.append(e); } e.textContent = t; e.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => { e.hidden = true; }, 2600); }
+function sessTitle(s){ return s.title || (s.notes && s.notes.headline) || "Untitled session"; }
+function titleLine(s){ return `${s.number !== "" && s.number != null ? "Session " + s.number + " — " : ""}${sessTitle(s)}`; }
+function shortLabel(s){ return s.number !== "" && s.number != null ? "Session " + s.number : sessTitle(s); }
+function arm(b, label, fn){ if (b.classList.contains("armed")) { b.classList.remove("armed"); b.textContent = b.dataset.o; fn(); return; } b.dataset.o = b.textContent; b.classList.add("armed"); b.textContent = label; setTimeout(() => { if (b.classList.contains("armed")) { b.classList.remove("armed"); b.textContent = b.dataset.o; } }, 3500); }
+const arr = v => Array.isArray(v) ? v : [];
+const str = v => typeof v === "string" ? v : (v == null ? "" : String(v));
+const clip = (t, n) => { t = str(t); return t.length > n ? t.slice(0, n) + " …[trimmed]" : t; };
+const slug = t => (t || "file").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "file";
+const norm = t => str(t).toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+function cleanTranscript(raw){
+  const out = []; let note = false;
+  for (let line of raw.replace(/\r/g, "").split("\n")) {
+    const t = line.trim();
+    if (/^WEBVTT/.test(t)) continue;
+    if (/^NOTE\b/.test(t)) { note = true; continue; }
+    if (note) { if (!t) note = false; continue; }
+    if (/^\d+$/.test(t) || /-->/.test(t)) continue;
+    out.push(line.replace(/<[^>]+>/g, "").trimEnd());
+  }
+  return out.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+function saveFile(name, text){
+  const blob = new Blob([text], {type:"application/json"});
+  try { const file = new File([blob], name, {type:"application/json"}); if (navigator.canShare && navigator.canShare({files:[file]})) { navigator.share({files:[file], title:name}).catch(() => {}); return; } } catch {}
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.append(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+const scripts = {};
+function loadScript(src){ return scripts[src] || (scripts[src] = new Promise((res, rej) => { const s = document.createElement("script"); s.src = src; s.onload = res; s.onerror = () => { delete scripts[src]; rej(new Error("load")); }; document.head.append(s); })); }
+async function fileText(f){
+  const ext = (f.name.split(".").pop() || "").toLowerCase();
+  if (["txt","md","markdown","text","csv","rtf"].includes(ext) || /^text\//.test(f.type)) return (await f.text()).replace(/\r/g, "");
+  if (ext === "docx") { await loadScript("lib/mammoth.browser.min.js"); const r = await window.mammoth.extractRawText({arrayBuffer: await f.arrayBuffer()}); return r.value.replace(/\n{3,}/g, "\n\n").trim(); }
+  if (ext === "pdf") {
+    await loadScript("lib/pdf.min.js"); window.pdfjsLib.GlobalWorkerOptions.workerSrc = "lib/pdf.worker.min.js";
+    const pdf = await window.pdfjsLib.getDocument({data: new Uint8Array(await f.arrayBuffer())}).promise; const out = [];
+    for (let i = 1; i <= pdf.numPages; i++) { const tc = await (await pdf.getPage(i)).getTextContent(); out.push(tc.items.map(it => it.str + (it.hasEOL ? "\n" : " ")).join("")); }
+    return out.join("\n\n").replace(/[ \t]+\n/g, "\n").trim();
+  }
+  throw new Error("type");
+}
+function copyText(text){
+  return new Promise(res => {
+    const fallback = () => { const ta = el("textarea"); ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0"; document.body.append(ta); ta.focus(); ta.select(); let ok = false; try { ok = document.execCommand("copy"); } catch {} ta.remove(); res(ok); };
+    try { if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(() => res(true), fallback); else fallback(); } catch { fallback(); }
+  });
+}
+
+/* ---------- top-level render ---------- */
+function render(){
+  const hasWorld = S.worlds.size > 0;
+  let v = !hasWorld || S.view === "start" ? "start" : S.view;
+  if (["table","listen","notes"].includes(v) && !sess()) { v = S.view = "library"; }
+  for (const id of ["start","table","listen","notes","library","settings"]) $("v-" + id).hidden = id !== v;
+  $("tabs").hidden = v === "start";
+  for (const b of document.querySelectorAll("#tabs button")) b.setAttribute("aria-selected", String(b.dataset.v === v));
+  renderHeader(); tick();
+  if (v === "start") { $("obCancel").hidden = !hasWorld; return; }
+  ({table:renderTable, listen:renderListen, notes:renderNotes, library:renderLibrary, settings:renderSettings})[v]();
+}
+function renderHeader(){
+  const s = sess(), {c, w, a} = ctxOf(s);
+  $("hCamp").textContent = s ? [w && w.name, c && c.name, a && a.name].filter(Boolean).join(" › ") : "Session Scribe";
+  $("hSess").textContent = s ? titleLine(s) : (S.worlds.size ? "No session open" : "Welcome");
+  const live = R.on || L.on; $("hLive").hidden = !live; $("navLive").hidden = !live;
+}
+function tick(){
+  const s = sess(); const c = $("hClock");
+  c.textContent = s && s.startedAt ? fmtClock(Date.now() - s.startedAt) : "0:00:00";
+  c.classList.toggle("idle", !(s && s.startedAt));
+  if (R.on && S.view === "listen") $("recTime").textContent = fmtClock((R.savedSec + R.pendN / RATE) * 1000 + R.prevSec * 1000);
+}
+setInterval(tick, 1000);
+$("who").onclick = () => { const s = sess(); if (s) { const {c} = ctxOf(s); S.lib = {w:c.worldId, c:c.id, a:null, edit:null, q:""}; } S.view = "library"; render(); $("main").scrollTop = 0; };
+for (const b of document.querySelectorAll("#tabs button")) b.onclick = () => { if (b.dataset.v === "library" && S.view === "library") { S.lib.edit = null; } S.view = b.dataset.v; render(); $("main").scrollTop = 0; };
+
+/* ---------- table ---------- */
+function renderTags(){
+  const bar = $("tagBar"); bar.replaceChildren();
+  for (const t of TAGS) {
+    const b = el("button","tag"); b.type = "button"; b.style.setProperty("--c", `var(${t.c})`); b.setAttribute("aria-pressed", String(S.tag === t.k));
+    b.append(el("span","dot"), document.createTextNode(t.label));
+    b.onclick = () => { S.tag = t.k; renderTags(); };
+    bar.append(b);
+  }
+  $("tagHint").textContent = S.tag === "npc" ? "Tip: write “Name — who they are” and they're added to the campaign's NPC list right away." : "";
+}
+function renderTable(){
+  const s = sess(); renderTags();
+  if (document.activeElement !== $("sTitle")) $("sTitle").value = s.title || "";
+  if (document.activeElement !== $("sNum")) $("sNum").value = s.number ?? "";
+  if (document.activeElement !== $("sDate")) $("sDate").value = s.date || "";
+  const sel = $("sArc"); sel.replaceChildren(); const none = el("option", null, "No arc"); none.value = ""; sel.append(none);
+  for (const a of arcsOf(s.campaignId)) { const o = el("option", null, a.name); o.value = a.id; sel.append(o); }
+  sel.value = s.arcId || "";
+  $("clockBtn").textContent = s.startedAt ? "Reset clock" : "Start clock";
+  $("clockBtn").classList.toggle("primary", !s.startedAt);
+  $("clockMeta").textContent = s.startedAt ? "Started " + new Date(s.startedAt).toLocaleTimeString([], {hour:"numeric", minute:"2-digit"}) : "Starts by itself when you record";
+  const ul = $("log"); ul.replaceChildren();
+  if (!s.log.length) { const d = el("div","empty"); d.append(el("b", null, "Nothing logged yet. "), document.createTextNode("Tap a tag, type a line, hit Log. These notes outrank the microphone, so use them for spellings and anything said too quietly to hear.")); ul.append(d); return; }
+  for (const e of [...s.log].reverse()) {
+    const t = TAGMAP[e.tag] || TAGMAP.plot;
+    const li = el("li"); li.style.setProperty("--c", `var(${t.c})`);
+    const body = el("div"); body.append(el("span","tg", t.label), el("span","tx", e.text));
+    const x = el("button","x","✕"); x.type = "button"; x.setAttribute("aria-label","Remove entry");
+    x.onclick = () => { s.log = s.log.filter(z => z.id !== e.id); saveSess(s); renderTable(); };
+    li.append(el("span","ts", stamp(s, e.at)), body, x); ul.append(li);
+  }
+}
+// "Name — who they are" on an NPC entry files them on the campaign roster
+async function npcFromLog(s, text){
+  const {c} = ctxOf(s); if (!c) return;
+  const m = /^(.{2,40}?)\s*(?:—|–|\s-\s|:)\s*(.+)$/.exec(text.trim());
+  const name = (m ? m[1] : text).trim(); const desc = m ? m[2].trim() : "";
+  if (!m && (name.split(/\s+/).length > 4 || name.length > 40)) return;
+  const ex = c.npcs.find(n => norm(n.name) === norm(name));
+  if (ex) { if (desc) ex.notes = (ex.notes ? ex.notes + "\n\n" : "") + `[${shortLabel(s)}] ${desc}`; await put("campaigns", c); toast(`Updated ${ex.name} in NPCs`); }
+  else { c.npcs.push({id:uid("n"), name, role:desc, status:"", notes:"", firstSeen:titleLine(s)}); await put("campaigns", c); toast(`Added ${name} to ${c.name}'s NPCs`); }
+}
+$("entryForm").onsubmit = e => {
+  e.preventDefault(); const s = sess(); const v = $("entryInp").value.trim(); if (!s || !v) return;
+  s.log.push({id: uid("e"), at: Date.now(), tag: S.tag, text: v});
+  $("entryInp").value = ""; saveSess(s); renderTable();
+  if (S.tag === "npc") npcFromLog(s, v);
+};
+$("clockBtn").onclick = () => {
+  const s = sess(); const b = $("clockBtn");
+  if (s.startedAt) { arm(b, "Tap again to reset", () => { s.startedAt = null; saveSess(s); renderTable(); tick(); }); return; }
+  s.startedAt = Date.now(); saveSess(s); keepAwake(); renderTable(); tick();
+};
+$("sTitle").oninput = e => { const s = sess(); s.title = e.target.value; saveSess(s); renderHeader(); };
+$("sNum").oninput = e => { const s = sess(); s.number = e.target.value === "" ? "" : Number(e.target.value); saveSess(s); renderHeader(); };
+$("sDate").onchange = e => { const s = sess(); s.date = e.target.value; saveSess(s); };
+$("sArc").onchange = e => { const s = sess(); s.arcId = e.target.value || null; saveSess(s, true); renderHeader(); };
+$("sDel").onclick = () => arm($("sDel"), "Tap again to delete", async () => {
+  const s = sess(); if (!s) return;
+  if (L.on) stopCaptions(); if (R.on && R.sessId === s.id) await stopRecording();
+  await deleteAudio(s.id);
+  clearTimeout(saveT[s.id]); S.sessions.delete(s.id); await store.del("sessions", s.id).catch(() => {});
+  S.lib = {w:ctxOf(s).c?.worldId || null, c:s.campaignId, a:s.arcId || null, edit:null, q:""};
+  S.sessId = null; saveActive(); S.view = "library"; render(); toast("Session deleted");
+});
+
+/* ---------- audio helpers ---------- */
+// Linear resampler with a light low-pass so downsampling doesn't fold noise into the speech band.
+function makeResampler(inRate, outRate){
+  const step = inRate / outRate; let pos = 0, prev = 0;
+  const a = step > 1 ? 1 - Math.exp(-2 * Math.PI * 7000 / inRate) : 1; let y1 = 0, y2 = 0;
+  return input => {
+    if (!input.length) return new Float32Array(0);
+    let x = input;
+    if (a < 1) { x = new Float32Array(input.length); for (let i = 0; i < input.length; i++) { y1 += a * (input[i] - y1); y2 += a * (y1 - y2); x[i] = y2; } }
+    if (step === 1) return x.slice();
+    const out = new Float32Array(Math.ceil((x.length - pos) / step) + 2); let n = 0;
+    for (;;) { const i = Math.floor(pos); if (i + 1 >= x.length) break; const f = pos - i, v0 = i < 0 ? prev : x[i]; out[n++] = v0 + (x[i + 1] - v0) * f; pos += step; }
+    pos -= x.length; prev = x[x.length - 1];
+    return out.subarray(0, n);
+  };
+}
+function toInt16(parts, n){ const out = new Int16Array(n); let o = 0; for (const p of parts) for (let i = 0; i < p.length && o < n; i++) { const v = Math.max(-1, Math.min(1, p[i])); out[o++] = v < 0 ? v * 32768 : v * 32767; } return out; }
+function toFloat(int16){ const out = new Float32Array(int16.length); for (let i = 0; i < int16.length; i++) out[i] = int16[i] / 32768; return out; }
+function concatF(parts){ const n = parts.reduce((t, p) => t + p.length, 0); const out = new Float32Array(n); let o = 0; for (const p of parts) { out.set(p, o); o += p.length; } return out; }
+async function audioInfo(sid){ try { const recs = await store.bySession("audio", sid); const total = recs.reduce((t, r) => t + r.n, 0) / RATE; const left = recs.filter(r => !r.done).reduce((t, r) => t + r.n, 0) / RATE; return {count:recs.length, total, left}; } catch { return {count:0, total:0, left:0}; } }
+async function deleteAudio(sid){ try { const keys = await store.keysBySession("audio", sid); for (const k of keys) await store.del("audio", k); } catch {} }
+
+/* ---------- in-app recording (saved to this phone in 30-second pieces) ---------- */
+const R = {on:false, sessId:null, stream:null, ctx:null, src:null, node:null, rs:null, pend:[], pendN:0, chunkStart:0, idx:0, savedSec:0, prevSec:0, err:""};
+async function startRecording(){
+  const s = sess(); if (!s || R.on) return;
+  if (L.on) stopCaptions();
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { R.err = "This browser can't record. On iPhone, open the app from its home-screen icon."; renderListen(); return; }
+  try { R.stream = await navigator.mediaDevices.getUserMedia({audio:{channelCount:1, echoCancellation:false, noiseSuppression:false, autoGainControl:true}}); }
+  catch { R.err = "Microphone access was blocked. Allow it for this app in iPhone Settings, then try again."; renderListen(); return; }
+  const AC = window.AudioContext || window.webkitAudioContext;
+  R.ctx = new AC(); try { await R.ctx.resume(); } catch {}
+  R.src = R.ctx.createMediaStreamSource(R.stream);
+  R.node = R.ctx.createScriptProcessor(4096, 1, 1);
+  R.rs = makeResampler(R.ctx.sampleRate, RATE);
+  if (!s.startedAt) { s.startedAt = Date.now(); saveSess(s); }
+  const info = await audioInfo(s.id);
+  const existing = await store.keysBySession("audio", s.id).catch(() => []);
+  R.idx = existing.length ? Math.max(...existing.map(k => Number(String(k).split(":")[1]) || 0)) + 1 : 0;
+  R.sessId = s.id; R.pend = []; R.pendN = 0; R.savedSec = 0; R.prevSec = info.total; R.err = "";
+  R.chunkStart = (Date.now() - s.startedAt) / 1000;
+  R.node.onaudioprocess = e => {
+    const out = R.rs(e.inputBuffer.getChannelData(0));
+    if (out.length) { R.pend.push(out.slice()); R.pendN += out.length; }
+    if (R.pendN >= CHUNK_SEC * RATE) flushChunk();
+    e.outputBuffer.getChannelData(0).fill(0);
+  };
+  R.src.connect(R.node); R.node.connect(R.ctx.destination);
+  R.on = true; keepAwake(); renderHeader(); renderListen();
+}
+function flushChunk(){
+  if (!R.pendN) return;
+  const n = R.pendN, pcm = toInt16(R.pend, n);
+  const rec = {id:`${R.sessId}:${String(R.idx).padStart(5, "0")}`, sessionId:R.sessId, idx:R.idx, start:R.chunkStart, n, pcm:pcm.buffer, done:false};
+  R.idx++; R.chunkStart += n / RATE; R.savedSec += n / RATE; R.pend = []; R.pendN = 0;
+  store.put("audio", rec).catch(e => { R.err = e && e.name === "QuotaExceededError" ? "This phone is out of storage space. Recording stopped; free up space or transcribe and delete old recordings." : "Couldn't save part of the recording."; stopRecording(); });
+}
+async function stopRecording(){
+  if (!R.on) return;
+  R.on = false;
+  try { R.node.onaudioprocess = null; R.src.disconnect(); R.node.disconnect(); } catch {}
+  try { R.stream.getTracks().forEach(t => t.stop()); } catch {}
+  try { await R.ctx.close(); } catch {}
+  flushChunk();
+  renderHeader(); if (S.view === "listen") renderListen();
+}
+$("recBtn").onclick = () => { R.on ? stopRecording() : startRecording(); };
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") {
+    if (R.on && R.ctx && R.ctx.state !== "running") R.ctx.resume().catch(() => {});
+    if (L.on && !L.active) runRec();
+    if (R.on || L.on || J.busy) keepAwake();
+  }
+});
+let wake = null;
+async function keepAwake(){ try { if ("wakeLock" in navigator && !wake) { wake = await navigator.wakeLock.request("screen"); wake.addEventListener("release", () => { wake = null; }); } } catch {} }
+
+/* ---------- live captions (iPhone speech recognition) ---------- */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+const L = {on:false, rec:null, active:false, runStart:0, runText:"", cycle:null, err:"", sessId:null};
+function startCaptions(){
+  if (!SR) return; const s = sess(); if (!s) return;
+  if (R.on) { toast("Stop recording first. Captions and recording can't share the mic."); return; }
+  L.on = true; L.err = ""; L.sessId = s.id;
+  if (!s.startedAt) { s.startedAt = Date.now(); saveSess(s); }
+  keepAwake(); runRec(); renderHeader(); if (S.view === "listen") renderListen();
+}
+function stopCaptions(){ L.on = false; clearTimeout(L.cycle); try { L.rec && L.rec.stop(); } catch {} renderHeader(); if (S.view === "listen") renderListen(); }
+function runRec(){
+  if (!L.on || L.active) return;
+  let r; try { r = new SR(); } catch { L.on = false; L.err = "Couldn't start live captions on this phone."; renderListen(); return; }
+  r.lang = S.set.lang || "en-US"; r.continuous = true; r.interimResults = true;
+  L.rec = r; L.runStart = Date.now(); L.runText = "";
+  r.onstart = () => { L.active = true; };
+  r.onresult = e => { let t = ""; for (let i = 0; i < e.results.length; i++) t += e.results[i][0].transcript; L.runText = t; if (S.view === "listen") $("interim").textContent = t.slice(-160); };
+  r.onerror = e => {
+    if (e.error === "not-allowed" || e.error === "service-not-allowed") { L.on = false; L.err = "Speech recognition is blocked. Allow the microphone for this app and turn on Dictation in Settings → General → Keyboard."; }
+    else if (e.error === "audio-capture") { L.on = false; L.err = "No microphone is available. Another app may be using it."; }
+  };
+  r.onend = () => { L.active = false; clearTimeout(L.cycle); commitRun(); if (L.on && document.visibilityState === "visible") setTimeout(runRec, 250); if (S.view === "listen") renderListen(); renderHeader(); };
+  try { r.start(); } catch { setTimeout(runRec, 800); return; }
+  L.cycle = setTimeout(() => { try { r.stop(); } catch {} }, 45000);
+}
+function commitRun(){
+  const t = L.runText.trim(); L.runText = ""; if (S.view === "listen") $("interim").textContent = "";
+  const s = S.sessions.get(L.sessId); if (!t || !s) return;
+  s.transcript = (s.transcript ? s.transcript + "\n" : "") + `[${stamp(s, L.runStart)}] ${t}`;
+  saveSess(s);
+  if (S.view === "listen" && s.id === S.sessId) renderFeed();
+}
+$("micBtn").onclick = () => { if (!SR) return; L.on ? stopCaptions() : startCaptions(); };
+
+/* ---------- Whisper on this phone ---------- */
+const W = {asr:null, key:null, loading:null, device:null};
+const J = {busy:false, stop:false};
+async function gpuInfo(){ try { if (!navigator.gpu) return null; const a = await navigator.gpu.requestAdapter(); return a ? {f16: a.features.has("shader-f16")} : null; } catch { return null; } }
+function modelInfo(){ return MODELS.find(m => m.k === S.set.wModel) || MODELS[2]; }
+async function getASR(onProgress){
+  const m = modelInfo(), pref = S.set.wEngine || "auto";
+  const gpu = pref === "cpu" ? null : await gpuInfo();
+  if (pref === "gpu" && !gpu) throw {kind:"gpu"};
+  const device = gpu ? "webgpu" : "wasm";
+  const key = m.k + "|" + device;
+  if (W.asr && W.key === key) return W.asr;
+  if (W.loading && W.loadingKey === key) return W.loading;
+  if (W.asr) { try { await W.asr.dispose(); } catch {} W.asr = null; W.key = null; }
+  const files = {};
+  const progress = p => {
+    if (p && p.file && typeof p.total === "number" && p.total > 0) { files[p.file] = {loaded:p.loaded || 0, total:p.total}; }
+    if (p && p.status === "done" && p.file && files[p.file]) files[p.file].loaded = files[p.file].total;
+    const vals = Object.values(files); const total = vals.reduce((t, f) => t + f.total, 0), loaded = vals.reduce((t, f) => t + f.loaded, 0);
+    if (onProgress && total) onProgress(loaded, total);
+  };
+  W.loadingKey = key;
+  W.loading = (async () => {
+    let T;
+    try { T = await import(TJS_URL); } catch { throw {kind:"offline"}; }
+    T.env.allowLocalModels = false;
+    const load = (dev) => T.pipeline("automatic-speech-recognition", m.id, {
+      device: dev, progress_callback: progress,
+      dtype: dev === "webgpu" ? {encoder_model: m.big ? "q4" : (gpu && gpu.f16 ? "fp16" : "fp32"), decoder_model_merged: "q4"} : {encoder_model: "q8", decoder_model_merged: "q8"},
+    });
+    try { W.asr = await load(device); W.device = device; W.key = key; }
+    catch (e) {
+      if (device === "webgpu" && pref === "auto") { W.asr = await load("wasm"); W.device = "wasm"; W.key = m.k + "|wasm"; }
+      else throw e;
+    }
+    return W.asr;
+  })();
+  try { return await W.loading; } finally { W.loading = null; W.loadingKey = null; }
+}
+function wErr(e){
+  if (!e) return "Something went wrong with Whisper. Try again.";
+  if (e.kind === "offline") return "Couldn't load Whisper. The first run needs an internet connection to download it.";
+  if (e.kind === "gpu") return "This phone's browser can't use the graphics chip. Set Run on to Automatic in Settings.";
+  if (e.kind === "format") return e.message;
+  const m = String(e.message || e);
+  if (/memory|allocation|out of memory|OOM/i.test(m)) return "The phone ran out of memory for this model. Pick a smaller Whisper model in Settings.";
+  if (/fetch|network|Failed to load|404/i.test(m)) return "Couldn't download the Whisper model. Check your connection, or try a different model in Settings.";
+  return "Whisper hit a problem: " + m.slice(0, 160) + ". A smaller model in Settings may help.";
+}
+async function transcribe(asr, audio){
+  const m = modelInfo();
+  const out = await asr(audio, {chunk_length_s:30, stride_length_s:5, ...(m.multi ? {language:"english", task:"transcribe"} : {})});
+  return str(Array.isArray(out) ? out.map(o => o.text).join(" ") : out && out.text).replace(/\s+/g, " ").trim();
+}
+// Shared runner: pulls windows of 16 kHz audio from a generator and appends text to the session.
+async function runWhisper(sid, gen, totalSec, label, onDone){
+  if (J.busy) return; J.busy = true; J.stop = false;
+  const ui = (t, err) => { const m = $("wMeta"); m.textContent = t; m.classList.toggle("err", !!err); m.classList.remove("ok"); };
+  const prog = f => { $("wBar").hidden = f == null; $("wFill").style.width = Math.round((f || 0) * 100) + "%"; };
+  $("wRun").disabled = true; $("upPick").classList.add("disabled"); $("wStop").hidden = false; prog(0); keepAwake();
+  let doneSec = 0, added = 0; const t0 = performance.now();
+  try {
+    ui("Loading Whisper…");
+    const asr = await getASR((l, t) => { ui(`Downloading the Whisper model (one time): ${mb(l)} of ${mb(t)}`); prog(l / t); });
+    prog(0); ui(`Transcribing ${label}… keep the app open.`);
+    for await (const w of gen) {
+      if (J.stop) break;
+      const text = await transcribe(asr, w.audio);
+      const s = S.sessions.get(sid);
+      if (text && s) { s.transcript = (s.transcript ? s.transcript + "\n" : "") + `[${fmtMin(w.start)}] ${text}`; saveSess(s, true); added += words(text); }
+      if (w.after) await w.after();
+      doneSec += w.audio.length / RATE;
+      const elapsed = (performance.now() - t0) / 1000, rate = doneSec / elapsed;
+      const left = totalSec ? Math.max(0, (totalSec - doneSec) / Math.max(rate, 0.01)) : null;
+      if (totalSec) prog(Math.min(1, doneSec / totalSec));
+      ui(`Transcribed ${durTxt(doneSec)}${totalSec ? ` of ${durTxt(totalSec)}` : ""}${left != null && doneSec < totalSec ? ` · about ${durTxt(left)} left` : ""} · ${W.device === "webgpu" ? "graphics chip" : "processor"}`);
+      if (S.view === "listen" && S.sessId === sid) renderFeed();
+    }
+    prog(null);
+    const m = $("wMeta");
+    m.textContent = J.stop ? `Paused · ${added.toLocaleString()} words added so far. Tap Transcribe again to pick up where it left off.` : `Done · ${added.toLocaleString()} words added to the transcript. Head to Notes when you're ready.`;
+    m.classList.add("ok"); m.classList.remove("err");
+    if (onDone) await onDone();
+  } catch (e) { prog(null); ui(wErr(e) + (added ? ` ${added.toLocaleString()} words were added before that.` : ""), true); }
+  finally { J.busy = false; $("wRun").disabled = false; $("upPick").classList.remove("disabled"); $("wStop").hidden = true; if (S.view === "listen") renderAudioMeta(); }
+}
+$("wStop").onclick = () => { J.stop = true; $("wStop").hidden = true; $("wMeta").textContent = "Stopping after the current part…"; };
+
+async function* recordedWindows(sid){
+  const recs = (await store.bySession("audio", sid)).filter(r => !r.done).sort((a,b) => a.idx - b.idx);
+  let group = [];
+  const emit = function* () {
+    if (!group.length) return;
+    const g = group; group = [];
+    yield {start:g[0].start, audio:concatF(g.map(r => toFloat(new Int16Array(r.pcm)))), after: async () => { for (const r of g) { r.done = true; await store.put("audio", r); } }};
+  };
+  for (const r of recs) {
+    const last = group[group.length - 1];
+    if (last && (Math.abs(r.start - (last.start + last.n / RATE)) > 3 || group.reduce((t, x) => t + x.n, 0) / RATE >= WINDOW_SEC)) yield* emit();
+    group.push(r);
+  }
+  yield* emit();
+}
+$("wRun").onclick = async () => {
+  const s = sess(); if (!s || J.busy) return;
+  if (R.on) { toast("Stop recording first."); return; }
+  const info = await audioInfo(s.id);
+  if (!info.left) { $("wMeta").textContent = info.count ? "Everything recorded has already been transcribed." : "Nothing recorded yet. Tap the red button to record a session."; return; }
+  runWhisper(s.id, recordedWindows(s.id), info.left, `${durTxt(info.left)} of audio`);
+};
+$("audioDel").onclick = () => arm($("audioDel"), "Tap again to delete the audio", async () => { const s = sess(); await deleteAudio(s.id); renderAudioMeta(); toast("Recording deleted. The transcript is kept."); });
+async function renderAudioMeta(){
+  const s = sess(); if (!s) return;
+  const info = await audioInfo(s.id);
+  $("audioMeta").textContent = info.count ? `${durTxt(info.total)} recorded${info.left ? ` · ${durTxt(info.left)} not transcribed yet` : " · all transcribed"} · ${mb(info.total * RATE * 2)} on this phone` : "";
+  $("audioDel").hidden = !info.count || R.on;
+}
+
+/* uploaded files → 16 kHz windows */
+function audioDuration(file){
+  return new Promise(res => {
+    const a = document.createElement("audio"); const u = URL.createObjectURL(file); let done = false;
+    const fin = v => { if (done) return; done = true; URL.revokeObjectURL(u); a.removeAttribute("src"); res(v); };
+    a.preload = "metadata"; a.onloadedmetadata = () => fin(isFinite(a.duration) && a.duration > 0 ? a.duration : null); a.onerror = () => fin(null);
+    setTimeout(() => fin(null), 10000); a.src = u;
+  });
+}
+let decodeCtx = null;
+async function decode16k(ab){
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!decodeCtx) { try { decodeCtx = new AC({sampleRate: RATE}); } catch { decodeCtx = new AC(); } }
+  const buf = await new Promise((res, rej) => decodeCtx.decodeAudioData(ab, res, rej));
+  const ch = buf.numberOfChannels, n = buf.length, mono = new Float32Array(n);
+  for (let c = 0; c < ch; c++) { const d = buf.getChannelData(c); for (let i = 0; i < n; i++) mono[i] += d[i] / ch; }
+  return buf.sampleRate === RATE ? mono : makeResampler(buf.sampleRate, RATE)(mono);
+}
+async function parseWav(file){
+  const buf = await file.slice(0, Math.min(file.size, 1 << 20)).arrayBuffer(); const v = new DataView(buf);
+  const tag = o => String.fromCharCode(v.getUint8(o), v.getUint8(o+1), v.getUint8(o+2), v.getUint8(o+3));
+  if (buf.byteLength < 44 || tag(0) !== "RIFF" || tag(8) !== "WAVE") return null;
+  let p = 12, fmt = null;
+  while (p + 8 <= buf.byteLength) {
+    const id = tag(p), sz = v.getUint32(p + 4, true);
+    if (id === "fmt ") { fmt = {format:v.getUint16(p+8,true), ch:v.getUint16(p+10,true), rate:v.getUint32(p+12,true), align:v.getUint16(p+20,true), bits:v.getUint16(p+22,true)}; if (fmt.format === 0xFFFE && sz >= 40) fmt.format = v.getUint16(p + 32, true); }
+    else if (id === "data") { if (!fmt) return null; const off = p + 8; let len = sz; if (!len || len === 0xFFFFFFFF || off + len > file.size) len = file.size - off; return {fmt, off, len: len - (len % fmt.align)}; }
+    p += 8 + sz + (sz & 1);
+  }
+  return null;
+}
+function pcmToMono(ab, f){
+  const v = new DataView(ab), n = Math.floor(ab.byteLength / f.align), out = new Float32Array(n), bps = f.bits / 8;
+  for (let i = 0; i < n; i++) {
+    let s = 0;
+    for (let c = 0; c < f.ch; c++) {
+      const o = i * f.align + c * bps; let x;
+      if (f.format === 3) x = f.bits === 64 ? v.getFloat64(o, true) : v.getFloat32(o, true);
+      else if (f.bits === 16) x = v.getInt16(o, true) / 32768;
+      else if (f.bits === 24) x = (v.getUint8(o) | (v.getUint8(o+1) << 8) | (v.getInt8(o+2) << 16)) / 8388608;
+      else if (f.bits === 32) x = v.getInt32(o, true) / 2147483648;
+      else x = (v.getUint8(o) - 128) / 128;
+      s += x;
+    }
+    out[i] = s / f.ch;
+  }
+  return out;
+}
+async function* wavWindows(file, w){
+  const f = w.fmt, rs = makeResampler(f.rate, RATE), winN = WINDOW_SEC * RATE;
+  const READ = Math.max(f.align, Math.floor((8 << 20) / f.align) * f.align);
+  let parts = [], count = 0, start = 0, off = 0;
+  while (off < w.len) {
+    const len = Math.min(READ, w.len - off);
+    const res = rs(pcmToMono(await file.slice(w.off + off, w.off + off + len).arrayBuffer(), f)); off += len;
+    let i = 0;
+    while (i < res.length) {
+      const take = Math.min(res.length - i, winN - count);
+      parts.push(res.slice(i, i + take)); count += take; i += take;
+      if (count >= winN) { yield {start, audio:concatF(parts)}; start += count / RATE; parts = []; count = 0; }
+    }
+  }
+  if (count > RATE) yield {start, audio:concatF(parts)};
+}
+function isMp3Frame(b, i){
+  if (b[i] !== 0xFF || (b[i+1] & 0xE0) !== 0xE0) return false;
+  const ver = (b[i+1] >> 3) & 3, layer = (b[i+1] >> 1) & 3, br = b[i+2] >> 4, sr = (b[i+2] >> 2) & 3;
+  return ver !== 1 && layer !== 0 && br !== 0 && br !== 15 && sr !== 3;
+}
+async function mp3AudioStart(file){
+  const b = new Uint8Array(await file.slice(0, Math.min(file.size, 1 << 20)).arrayBuffer());
+  let p = 0;
+  while (b[p] === 0x49 && b[p+1] === 0x44 && b[p+2] === 0x33) p += 10 + ((b[p+6] << 21) | (b[p+7] << 14) | (b[p+8] << 7) | b[p+9]) + ((b[p+5] & 0x10) ? 10 : 0);
+  while (p + 4 < b.length && !isMp3Frame(b, p)) p++;
+  if (p + 4 >= b.length) return 0;
+  const head = String.fromCharCode(...b.subarray(p, Math.min(b.length, p + 200)));
+  if (/Xing|Info|VBRI/.test(head)) { let q = p + 4; while (q + 4 < b.length && !isMp3Frame(b, q)) q++; if (q + 4 < b.length) return q; }
+  return p;
+}
+async function* mp3Windows(file, dur){
+  const bps = dur ? file.size / dur : 16000, target = Math.max(256 << 10, Math.floor(bps * WINDOW_SEC));
+  let off = await mp3AudioStart(file), start = 0;
+  while (off < file.size) {
+    let end = Math.min(file.size, off + target);
+    if (end < file.size) { const b = new Uint8Array(await file.slice(end, Math.min(file.size, end + 65536)).arrayBuffer()); for (let i = 0; i + 3 < b.length; i++) if (isMp3Frame(b, i)) { end += i; break; } }
+    let audio;
+    try { audio = await decode16k(await file.slice(off, end).arrayBuffer()); } catch { throw {kind:"format", message:"This phone couldn't read part of that MP3. Try exporting it again."}; }
+    yield {start, audio};
+    start += audio.length / RATE; off = end;
+  }
+}
+async function* wholeWindows(file){
+  let audio;
+  try { audio = await decode16k(await file.arrayBuffer()); }
+  catch { throw {kind:"format", message:"This phone couldn't open that recording. For long sessions, record in the app or export as MP3."}; }
+  for (let s = 0; s < audio.length; s += WINDOW_SEC * RATE) yield {start:s / RATE, audio:audio.subarray(s, Math.min(audio.length, s + WINDOW_SEC * RATE))};
+}
+$("upFile").onchange = async e => {
+  const f = e.target.files[0]; e.target.value = ""; const s = sess(); if (!f || !s || J.busy) return;
+  if (R.on) { toast("Stop recording first."); return; }
+  const ext = (f.name.split(".").pop() || "").toLowerCase();
+  const dur = await audioDuration(f);
+  let gen, total = dur;
+  try {
+    if (ext === "wav" || /wav/.test(f.type)) { const w = await parseWav(f); if (w && [1,3].includes(w.fmt.format)) { gen = wavWindows(f, w); total = w.len / (w.fmt.rate * w.fmt.align); } }
+    if (!gen && (ext === "mp3" || f.type === "audio/mpeg")) gen = mp3Windows(f, dur);
+    if (!gen) { if (f.size > 250 * 1024 * 1024) throw {kind:"format", message:"That file is too large for this phone to open in one go. Export it as MP3 (any length works) or record in the app."}; gen = wholeWindows(f); }
+  } catch (err) { $("wMeta").textContent = wErr(err); $("wMeta").classList.add("err"); return; }
+  const s2 = S.sessions.get(s.id);
+  s2.transcript = (s2.transcript ? s2.transcript + "\n\n" : "") + `— Recording: ${f.name} —`; saveSess(s2, true);
+  runWhisper(s.id, gen, total, f.name);
+};
+
+/* ---------- listen tab ---------- */
+function renderFeed(){
+  const s = sess(); const f = $("feed"); const t = s.transcript || "";
+  f.textContent = t ? (t.length > 6000 ? "…" + t.slice(-6000) : t) : "No transcript yet. Record and transcribe, upload a recording, or paste a transcript below.";
+  f.scrollTop = f.scrollHeight;
+  $("trCount").textContent = t ? `${words(t).toLocaleString()} words` : "";
+}
+function renderListen(){
+  const s = sess();
+  const rb = $("recBtn"); rb.classList.toggle("on", R.on); rb.setAttribute("aria-label", R.on ? "Stop recording" : "Start recording");
+  $("recState").textContent = R.on ? "Recording… tap to stop" : "Record the session";
+  if (!R.on) audioInfo(s.id).then(i => { if (!R.on && S.view === "listen") $("recTime").textContent = fmtClock(i.total * 1000); });
+  const rm = $("recMeta"); rm.textContent = R.err || (R.on ? "Saved to this phone as you go" : ""); rm.classList.toggle("err", !!R.err);
+  $("micBtn").textContent = L.on ? "Stop live captions" : "Start live captions";
+  $("micBtn").classList.toggle("rec", L.on);
+  $("micState").textContent = !SR ? "Live captions aren't available in this browser." : L.on ? "Listening…" : L.err;
+  $("micState").classList.toggle("err", !!L.err && !L.on);
+  $("wHelp").textContent = `Runs on this phone, free and private, using Whisper ${modelInfo().label.split(" · ")[0]} (change it in Settings). The first time, it downloads the model, ${modelInfo().size}.`;
+  renderAudioMeta(); renderFeed();
+  if (document.activeElement !== $("trEdit")) $("trEdit").value = s.transcript || "";
+}
+$("trSave").onclick = () => { const s = sess(); s.transcript = cleanTranscript($("trEdit").value); saveSess(s, true); renderFeed(); $("trEdit").value = s.transcript; toast("Transcript saved"); };
+$("trFile").onchange = async e => {
+  const f = e.target.files[0]; e.target.value = ""; if (!f) return;
+  const t = cleanTranscript(await f.text()); const s = sess();
+  s.transcript = s.transcript ? s.transcript + "\n\n" + t : t;
+  saveSess(s, true); renderListen(); toast(`Added ${words(t).toLocaleString()} words`);
+};
+
+/* ---------- what Claude reads ---------- */
+function listify(t){ return str(t).split(/\n+/).map(x => x.trim()).filter(Boolean).join("; "); }
+function docsBlock(docs, cap){
+  let out = "", left = cap;
+  for (const d of arr(docs)) { if (left <= 200) { out += "\n[more lore not included]"; break; } const body = clip(d.text, left); out += `\n## ${d.title || "Untitled"}\n${body}\n`; left -= body.length; }
+  return out.trim();
+}
+function contextFor(s){
+  const {c, w, a} = ctxOf(s); const P = [];
+  P.push(`WORLD: ${w ? w.name : "(unknown)"}`);
+  if (w && w.names) P.push(`NAMES & PLACES IN THIS WORLD (spellings): ${listify(w.names)}`);
+  P.push(`CAMPAIGN: ${c ? c.name : "(unknown)"} (tabletop RPG, likely D&D 5e)`);
+  P.push("PLAYER CHARACTERS:\n" + (c && c.pcs.length ? c.pcs.map(p => `- ${p.name}${p.player ? ` (played by ${p.player})` : ""}${p.desc ? ` — ${p.desc}` : ""}${p.notes ? `: ${clip(p.notes, 300)}` : ""}`).join("\n") : "(none listed)"));
+  P.push("KNOWN NPCs (met before this session):\n" + (c && c.npcs.length ? [...c.npcs].slice(0, 200).map(n => `- ${n.name}${n.role ? ` — ${n.role}` : ""}${n.status ? ` [${n.status}]` : ""}${n.notes ? `: ${clip(n.notes, 160)}` : ""}`).join("\n") : "(none yet)"));
+  if (a) P.push(`CURRENT ARC: ${a.name}${a.status ? ` (${a.status})` : ""}${a.summary ? `\nDM's arc notes: ${clip(a.summary, 3000)}` : ""}${a.storySoFar ? `\nStory so far: ${clip(a.storySoFar, 3000)}` : ""}`);
+  const prev = c ? sessionsOf(c.id).filter(o => o.id !== s.id && o.notes && o.notes.recap).slice(0, 3) : [];
+  if (prev.length) P.push("RECENT EARLIER SESSIONS:\n" + prev.map(o => `- ${titleLine(o)}: ${clip(o.notes.recap, 700)}`).join("\n"));
+  const bg = [w && w.docs.length ? `### WORLD LORE — ${w.name}\n${docsBlock(w.docs, 20000)}` : "", c && c.docs.length ? `### CAMPAIGN LORE — ${c.name}\n${docsBlock(c.docs, 20000)}` : "", a && a.docs && a.docs.length ? `### ARC LORE — ${a.name}\n${docsBlock(a.docs, 8000)}` : ""].filter(Boolean).join("\n\n");
+  if (bg) P.push(`BACKGROUND (the DM's private reference, not a record of this session):\n${bg}`);
+  P.push(`SESSION: ${titleLine(s)}${s.date ? " (" + s.date + ")" : ""}`);
+  return P.join("\n\n");
+}
+function logBlock(s){ return s.log.length ? s.log.map(e => `[${stamp(s, e.at)}] ${(TAGMAP[e.tag] || TAGMAP.plot).label.toUpperCase()}: ${e.text}`).join("\n") : "(none)"; }
+
+const SESSION_SHAPE = `{
+  "headline": "4-8 word evocative title for this session",
+  "recap": "DM-facing summary in 2-4 short paragraphs, past tense, in order of events",
+  "playerRecap": "player-facing 'last time on...' recap in 2-3 paragraphs of clean prose, past tense, no headings or bullets",
+  "plot": [{"text": "one sentence", "major": true}],
+  "npcs": [{"name": "", "status": "new or returning", "note": "what they did, said, or want"}],
+  "locations": [{"name": "", "note": ""}],
+  "loot": [{"item": "", "who": "who has it now, or empty", "note": ""}],
+  "threads": [{"text": "", "status": "opened, advanced, or resolved"}],
+  "partyLearned": ["facts, names or secrets the players heard or discovered this session"],
+  "pcMoments": [{"pc": "character name", "text": "a defining choice, roleplay beat, or big roll"}],
+  "quotes": [{"who": "", "text": "a short memorable line said in the session"}],
+  "rulings": ["rules calls or homebrew rulings made at the table"],
+  "hooks": ["things the DM may want to prep or follow up next session, grounded only in what happened"],
+  "unclear": ["names or moments the transcript garbled that the DM should double-check"],
+  "records": {
+    "npcs": [{"name": "exact spelling", "role": "who they are, if learned", "status": "alive, dead, missing, unknown, or empty if unchanged", "add": "1-2 sentences to add to their record from this session"}],
+    "pcs": [{"name": "player character name", "add": "1 sentence on what this session meant for them"}],
+    "lore": [{"category": "Places, Factions, Items, History, or Other", "title": "short name", "text": "what was established at the table"}],
+    "arcSoFar": "one paragraph telling the current arc's story so far, including this session; empty if there is no current arc"
+  }
+}`;
+const RULES = `Rules:
+- The transcript comes from speech recognition at a tabletop session: no or unreliable speaker labels, misheard words and names, lines running together. Bracketed times like [1:05] are hours:minutes into the session or recording. The DM's table log is authoritative when it disagrees with the transcript.
+- Record only what happened at the table. Do not invent events, motives, or outcomes. If something is uncertain, put it in "unclear" instead of guessing.
+- The BACKGROUND, NPC list, arc notes and earlier sessions are the DM's private reference. Use them to understand references, spell names, and recognise returning characters. Never report something from them as happening this session unless the transcript or log shows it, and never put anything from them in "playerRecap" or "partyLearned" unless it was revealed at the table.
+- Spell names using the player characters, known NPCs, and names lists. When a misheard word clearly means one of those names, use that spelling.
+- Ignore out-of-game chatter (food, scheduling, real-life jokes) except rules rulings.
+- "playerRecap" covers only what the player characters witnessed or learned. Leave out DM asides, behind-the-screen narration, and table-log entries tagged LORE or HOOK unless the transcript shows the players learned them.
+- NPC "status": "returning" if the NPC is in KNOWN NPCs, otherwise "new".
+- "records" updates the campaign's files: include every NPC who appeared or mattered this session, every player character with a notable moment, and lore only for things newly established at the table (never copied from BACKGROUND).
+- Keep list items to one sentence, in chronological order. Empty arrays are fine. Mark only truly story-changing plot items "major": true.`;
+const REPLY_FORMAT = "Reply with ONE ```json code block containing only the JSON object, and nothing before or after it.";
+
+// Splits a long prompt into numbered parts that fit in one paste each.
+function packParts(intro, bigLabel, big, outro){
+  const single = `${intro}\n\n${bigLabel}:\n${big || "(none)"}\n\n${outro}`;
+  if (single.length <= PART_LIMIT) return [single];
+  const room = PART_LIMIT - 1500, pieces = [];
+  let i = 0, budget1 = Math.max(20000, room - intro.length);
+  while (i < big.length) {
+    const size = pieces.length === 0 ? budget1 : room;
+    let end = Math.min(big.length, i + size);
+    if (end < big.length) { const nl = big.lastIndexOf("\n", end); if (nl > i + size * 0.6) end = nl; }
+    pieces.push(big.slice(i, end)); i = end;
+  }
+  const n = pieces.length;
+  return pieces.map((p, k) => {
+    if (k === 0) return `I'm going to send this in ${n} messages because it's long. After each message except the last, reply only with "Got part 1", "Got part 2", and so on. After the last one, do the task.\n\n${intro}\n\n${bigLabel} (PART 1 OF ${n}):\n${p}\n\n[End of part 1 of ${n}. Reply only "Got part 1".]`;
+    if (k < n - 1) return `${bigLabel} (PART ${k + 1} OF ${n}):\n${p}\n\n[End of part ${k + 1} of ${n}. Reply only "Got part ${k + 1}".]`;
+    return `${bigLabel} (PART ${n} OF ${n}):\n${p}\n\n[That was the last part.]\n\n${outro}`;
+  });
+}
+function sessionPrompts(s){
+  const intro = `You are the session scribe for a tabletop RPG campaign. Turn this session into structured notes for the Dungeon Master and suggest updates to the campaign's records.\n\n${contextFor(s)}\n\nDM TABLE LOG:\n${logBlock(s)}`;
+  const outro = `${RULES}\n\nJSON shape:\n${SESSION_SHAPE}\n\n${REPLY_FORMAT}`;
+  return packParts(intro, "TRANSCRIPT", (s.transcript || "").trim() || "(no transcript; work from the table log only)", outro.replace("Rules:", "Now write the notes. Rules:"));
+}
+const ORGANIZE_SHAPE = `{
+  "npcs": [{"name": "", "role": "who they are", "status": "alive, dead, missing, unknown, or empty", "notes": "everything the text says about them, condensed"}],
+  "pcs": [{"name": "", "desc": "race, class, level if given", "notes": "backstory, goals, secrets from the text"}],
+  "lore": [{"category": "Places, Factions, Items, History, Religion, Magic, or Other", "title": "short name", "text": "the facts, condensed but complete"}],
+  "names": ["every proper noun worth spelling correctly in transcripts"]
+}`;
+function organizePrompts(scope, doc){
+  const c = scope.campaign, w = scope.world;
+  const known = c ? `\nPLAYER CHARACTERS ALREADY ON FILE: ${c.pcs.map(p => p.name).join("; ") || "(none)"}\nNPCs ALREADY ON FILE: ${c.npcs.map(n => n.name).join("; ") || "(none)"}` : "";
+  const intro = `You are organizing a Dungeon Master's lore for the ${c ? `campaign "${c.name}" in the world "${w.name}"` : `world "${w.name}"`}. Sort the document below into the DM's records.${known}`;
+  const outro = `Now organize it. Rules:\n- Use only what the document says; don't add facts.\n- Put people who aren't player characters in "npcs". Only put someone in "pcs" if the document clearly says they're a player character${c ? "" : " (leave pcs empty for a world)"}.\n- Group places, organizations, objects, historical events, gods and magic into "lore" entries, one per subject.\n- Keep secrets and DM-only details; these are private records.\n\nJSON shape:\n${ORGANIZE_SHAPE}\n\n${REPLY_FORMAT}`;
+  return packParts(intro, `DOCUMENT "${doc.title || "Untitled"}"`, doc.text, outro);
+}
+
+/* ---------- copy → Claude → paste back ---------- */
+function parseReply(text){
+  const t = str(text).trim(); if (!t) throw new Error("empty");
+  const tries = [t];
+  const f = /```(?:json)?\s*([\s\S]*?)```/.exec(t); if (f) tries.unshift(f[1]);
+  const a = t.indexOf("{"), b = t.lastIndexOf("}"); if (a >= 0 && b > a) tries.push(t.slice(a, b + 1));
+  for (const x of tries) { try { const j = JSON.parse(x); if (j && typeof j === "object") return j; } catch {} }
+  for (const x of tries) { try { const j = JSON.parse(x.replace(/[“”]/g, '"').replace(/[‘’]/g, "'").replace(/,\s*([}\]])/g, "$1")); if (j && typeof j === "object") return j; } catch {} }
+  throw new Error("json");
+}
+// Draws the copy/paste card. cfg: {key, title, help, prompts(), onReply(json) -> review}
+function exchangeCard(host, cfg){
+  const card = el("div","card");
+  card.append(el("strong", null, cfg.title));
+  if (cfg.help) card.append(el("p","help", cfg.help));
+  const steps = el("ol","steps");
+  const s1 = el("li"), d1 = el("div"); s1.append(d1);
+  let prompts = null;
+  try { prompts = cfg.prompts(); } catch { prompts = null; }
+  const n = prompts ? prompts.length : 0;
+  d1.append(el("span", null, n > 1 ? `Copy each part and paste it into one new Claude chat, in order. Claude will say "Got part 1" and so on, then answer after the last part.` : "Copy everything Claude needs."));
+  const cr = el("div","row");
+  if (prompts) prompts.forEach((p, i) => cr.append(btn(n > 1 ? `Copy part ${i + 1} of ${n}` : "Copy for Claude", i === 0 ? "primary" : "", async ev => { const ok = await copyText(p); toast(ok ? (n > 1 ? `Part ${i + 1} copied` : "Copied") : "Copy didn't work. Try again."); if (ok) ev.target.textContent = (n > 1 ? `Part ${i + 1}` : "Copied") + " ✓"; })));
+  d1.append(cr, el("span","meta", prompts ? `${prompts.reduce((t, p) => t + p.length, 0).toLocaleString()} characters` : ""));
+  const s2 = el("li"), d2 = el("div"); s2.append(d2);
+  const open = el("a","btn ghost","Open Claude"); open.href = "https://claude.ai/new"; open.target = "_blank"; open.rel = "noopener";
+  d2.append(el("span", null, "Paste into a new chat in the Claude app. Any Claude account works, including free."), el("div","row")); d2.lastChild.append(open);
+  const s3 = el("li"), d3 = el("div"); s3.append(d3);
+  const ta = el("textarea","ta"); ta.placeholder = "Paste Claude's reply here (tap Copy on its code block)"; ta.value = S.drafts[cfg.key] || ""; ta.style.minHeight = "110px";
+  ta.oninput = () => { S.drafts[cfg.key] = ta.value; };
+  const msg = el("span","meta msg");
+  const pasteBtn = btn("Paste", "", async () => { try { const t = await navigator.clipboard.readText(); if (t) { ta.value = t; S.drafts[cfg.key] = t; } } catch { ta.focus(); toast("Long-press the box and choose Paste"); } });
+  const fileBtn = btn("File it", "primary", () => {
+    let j; try { j = parseReply(ta.value); } catch (e) { msg.textContent = e.message === "empty" ? "Paste Claude's reply first." : "That doesn't look like Claude's notes. Copy the whole code block from Claude's last reply and paste it again."; msg.classList.add("err"); return; }
+    msg.textContent = ""; msg.classList.remove("err");
+    S.reviews[cfg.key] = cfg.onReply(j); S.drafts[cfg.key] = ""; render();
+  });
+  d3.append(el("span", null, "Paste Claude's reply back here."), ta, el("div","row"), msg); d3.children[2].append(pasteBtn, fileBtn);
+  steps.append(s1, s2, s3); card.append(steps);
+  host.append(card);
+}
+// Review list: groups of checkable changes, saved together.
+function reviewCard(host, key, review){
+  const card = el("div","card review");
+  card.append(el("strong", null, review.title), el("p","help", "Untick anything you don't want saved."));
+  const checks = [];
+  for (const g of review.groups) {
+    if (!g.items.length) continue;
+    const box = el("div","rgroup"); box.append(el("span","lbl", `${g.title} · ${g.items.length}`));
+    for (const it of g.items) {
+      const lab = el("label","ritem"); const cb = el("input"); cb.type = "checkbox"; cb.checked = it.checked !== false;
+      const body = el("div"); const t = el("span","rt", it.label); if (it.pill) t.append(el("span","pill " + it.pill, it.pill)); body.append(t); if (it.detail) body.append(el("span","rd", it.detail));
+      lab.append(cb, body); box.append(lab); checks.push([cb, it]);
+    }
+    card.append(box);
+  }
+  if (!checks.length) card.append(el("p","help", "Nothing new to file for the campaign records."));
+  const r = el("div","row");
+  r.append(btn(review.saveLabel || "Save", "primary", async () => {
+    if (review.always) await review.always();
+    let n = 0; for (const [cb, it] of checks) if (cb.checked) { await it.apply(); n++; }
+    if (review.finish) await review.finish();
+    delete S.reviews[key]; render(); toast(n ? `Saved ${n} update${n === 1 ? "" : "s"}` : "Saved");
+  }), btn("Discard", "ghost", () => { delete S.reviews[key]; render(); }));
+  card.append(r); host.append(card);
+}
+
+/* filing helpers */
+const STATUSES = ["alive","dead","missing","unknown"];
+function findByName(list, name){ const k = norm(name); return list.find(x => norm(x.name) === k) || null; }
+function appendLore(owner, category, title, text, source){
+  const cat = (str(category).trim() || "Other").replace(/^\w/, ch => ch.toUpperCase());
+  let d = owner.docs.find(x => x.auto && norm(x.title) === norm(cat));
+  if (!d) { d = {id:uid("d"), title:cat, text:"", auto:true, updatedAt:Date.now()}; owner.docs.push(d); }
+  const head = `### ${title}`, entry = `${str(text).trim()}${source ? ` _(${source})_` : ""}`;
+  const idx = d.text.indexOf(head + "\n");
+  if (idx >= 0) { const after = idx + head.length + 1; const next = d.text.indexOf("\n### ", after); const at = next >= 0 ? next : d.text.length; d.text = d.text.slice(0, at).trimEnd() + "\n\n" + entry + d.text.slice(at); }
+  else d.text = (d.text.trim() ? d.text.trimEnd() + "\n\n" : "") + head + "\n" + entry;
+  d.updatedAt = Date.now();
+}
+
+/* ---------- notes view ---------- */
+function normalizeNotes(n){
+  n = n && typeof n === "object" ? n : {};
+  return {
+    headline: str(n.headline), recap: str(n.recap), playerRecap: str(n.playerRecap),
+    plot: arr(n.plot).map(p => typeof p === "string" ? {text:p, major:false} : {text:str(p.text), major:!!p.major}).filter(p => p.text),
+    npcs: arr(n.npcs).map(p => ({name:str(p.name), status:/return/i.test(str(p.status)) ? "returning" : (p.status ? "new" : ""), note:str(p.note)})).filter(p => p.name),
+    locations: arr(n.locations).map(p => typeof p === "string" ? {name:p, note:""} : {name:str(p.name), note:str(p.note)}).filter(p => p.name),
+    loot: arr(n.loot).map(p => typeof p === "string" ? {item:p, who:"", note:""} : {item:str(p.item), who:str(p.who), note:str(p.note)}).filter(p => p.item),
+    threads: arr(n.threads).map(p => typeof p === "string" ? {text:p, status:""} : {text:str(p.text), status:(["opened","advanced","resolved"].find(k => str(p.status).toLowerCase().startsWith(k.slice(0,4))) || "")}).filter(p => p.text),
+    partyLearned: arr(n.partyLearned).map(str).filter(Boolean),
+    pcMoments: arr(n.pcMoments).map(p => ({pc:str(p.pc), text:str(p.text)})).filter(p => p.text),
+    quotes: arr(n.quotes).map(p => typeof p === "string" ? {who:"", text:p} : {who:str(p.who), text:str(p.text).replace(/^["“]|["”]$/g, "")}).filter(p => p.text),
+    rulings: arr(n.rulings).map(str).filter(Boolean),
+    hooks: arr(n.hooks).map(str).filter(Boolean),
+    unclear: arr(n.unclear).map(str).filter(Boolean),
+  };
+}
+function sessionReview(s, j){
+  const {c, a} = ctxOf(s); const notes = normalizeNotes(j); const rec = j.records && typeof j.records === "object" ? j.records : {};
+  const label = shortLabel(s), groups = [];
+  const npcItems = [];
+  for (const x of arr(rec.npcs)) {
+    const name = str(x.name).trim(); if (!name || !c) continue;
+    if (findByName(c.pcs, name)) continue;
+    const ex = findByName(c.npcs, name), status = STATUSES.includes(str(x.status).toLowerCase()) ? str(x.status).toLowerCase() : "";
+    const add = str(x.add).trim(), role = str(x.role).trim();
+    npcItems.push({label:name, pill: ex ? (status && status !== ex.status ? status : "update") : "new", detail:[role && !(ex && ex.role) ? role : "", add].filter(Boolean).join(" · "),
+      apply: async () => {
+        const cur = findByName(c.npcs, name);
+        if (cur) { if (add) cur.notes = (cur.notes ? cur.notes + "\n\n" : "") + `[${label}] ${add}`; if (status) cur.status = status; if (role && !cur.role) cur.role = role; }
+        else c.npcs.push({id:uid("n"), name, role, status, notes: add ? `[${label}] ${add}` : "", firstSeen:titleLine(s)});
+      }});
+  }
+  groups.push({title:"NPCs", items:npcItems});
+  const pcItems = [];
+  for (const x of arr(rec.pcs)) { const p = c && findByName(c.pcs, str(x.name)); const add = str(x.add).trim(); if (!p || !add) continue; pcItems.push({label:p.name, detail:add, apply: async () => { p.notes = (p.notes ? p.notes + "\n\n" : "") + `[${label}] ${add}`; }}); }
+  groups.push({title:"Player characters", items:pcItems});
+  const loreItems = [];
+  for (const x of arr(rec.lore)) { const title = str(x.title).trim(), text = str(x.text).trim(); if (!title || !text || !c) continue; loreItems.push({label:title, pill:str(x.category).toLowerCase() || "other", detail:text, apply: async () => appendLore(c, x.category, title, text, label)}); }
+  groups.push({title:`Lore for ${c ? c.name : "the campaign"}`, items:loreItems});
+  const arcItems = [];
+  if (a && str(rec.arcSoFar).trim()) arcItems.push({label:`${a.name}: story so far`, detail:str(rec.arcSoFar).trim(), apply: async () => { a.storySoFar = str(rec.arcSoFar).trim(); await put("arcs", a); }});
+  groups.push({title:"Arc", items:arcItems});
+  return {title:`Notes ready: ${notes.headline || titleLine(s)}`, saveLabel:"Save notes and updates", groups,
+    always: async () => { s.notes = notes; s.notesAt = Date.now(); if (!s.title && notes.headline) s.title = notes.headline; saveSess(s, true); },
+    finish: async () => { if (c) await put("campaigns", c); }};
+}
+function sections(s){
+  const n = s.notes; const out = [];
+  if (n.recap) out.push(["Recap", null, n.recap]);
+  out.push(["Plot developments", n.plot.map(p => (p.major ? "★ " : "") + p.text)]);
+  out.push(["NPCs", n.npcs.map(p => `${p.name}${p.status ? ` (${p.status})` : ""}${p.note ? " — " + p.note : ""}`)]);
+  out.push(["Quests & open threads", n.threads.map(p => `${p.text}${p.status ? ` [${p.status}]` : ""}`)]);
+  out.push(["Places", n.locations.map(p => p.name + (p.note ? " — " + p.note : ""))]);
+  out.push(["Loot & rewards", n.loot.map(p => p.item + (p.who ? " → " + p.who : "") + (p.note ? " — " + p.note : ""))]);
+  out.push(["What the party now knows", n.partyLearned]);
+  out.push(["Character moments", n.pcMoments.map(p => `${p.pc} — ${p.text}`)]);
+  out.push(["Quotes", n.quotes.map(p => `“${p.text}”${p.who ? " — " + p.who : ""}`)]);
+  out.push(["Rulings", n.rulings]);
+  out.push(["Prep for next session", n.hooks]);
+  out.push(["Check these", n.unclear]);
+  if (n.playerRecap) out.push(["Player recap", null, n.playerRecap]);
+  return out.filter(([, items, prose]) => prose || (items && items.length));
+}
+function notesText(s){ let t = titleLine(s) + (s.date ? "\n" + fmtDate(s.date) : "") + "\n"; for (const [h, items, prose] of sections(s)) t += `\n${h}\n` + (prose ? prose.trim() : items.map(i => "• " + i).join("\n")) + "\n"; return t; }
+const esc = t => String(t ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function notesHTML(s){
+  let h = `<h1>${esc(titleLine(s))}</h1>${s.date ? `<p>${esc(fmtDate(s.date))}</p>` : ""}`;
+  for (const [t, items, prose] of sections(s)) h += `<h2 style="color:#1f8a80">${esc(t)}</h2>` + (prose ? prose.split(/\n+/).filter(x => x.trim()).map(p => `<p>${esc(p)}</p>`).join("") : `<ul>${items.map(i => `<li>${esc(i)}</li>`).join("")}</ul>`);
+  return h;
+}
+function copyRich(text, html){
+  try {
+    if (html && window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) return navigator.clipboard.write([new ClipboardItem({"text/html": new Blob([html], {type:"text/html"}), "text/plain": new Blob([text], {type:"text/plain"})})]).then(() => toast("Copied"), () => copyText(text).then(ok => toast(ok ? "Copied" : "Copy didn't work")));
+  } catch {}
+  return copyText(text).then(ok => toast(ok ? "Copied" : "Copy didn't work"));
+}
+function share(title, text){ if (navigator.share) navigator.share({title, text}).catch(() => {}); else copyText(text).then(ok => toast(ok ? "Copied" : "Copy didn't work")); }
+function secEl(title, count){ const s = el("section","sec"); const h = el("h3", null, title); if (count != null) h.append(el("span","c", String(count))); s.append(h); return s; }
+function listEl(a, fn){ const ul = el("ul","items"); for (const x of a) { const li = el("li"); fn(li, x); ul.append(li); } return ul; }
+function prose(t){ const d = el("div","prose"); for (const p of String(t || "").split(/\n+/).map(x => x.trim()).filter(Boolean)) d.append(el("p", null, p)); return d; }
+function named(li, name, rest){ const w = el("span"); w.append(el("span","nm", name), document.createTextNode(rest)); li.append(w); }
+function renderNotes(){
+  const s = sess(); const host = $("notesEx"); host.replaceChildren(); const out = $("notesOut"); out.replaceChildren();
+  const key = "sess:" + s.id;
+  if (S.reviews[key]) reviewCard(host, key, S.reviews[key]);
+  else exchangeCard(host, {key, title: s.notes ? "Rebuild notes with Claude" : "Make notes with Claude",
+    help: (s.transcript || "").trim() || s.log.length ? `Sends the transcript (${words(s.transcript || "").toLocaleString()} words), your table log and this campaign's lore. Free with any Claude account.` : "Nothing to work from yet. Record and transcribe, paste a transcript, or log a few entries on the Table tab first.",
+    prompts: () => sessionPrompts(s), onReply: j => sessionReview(s, j)});
+  if (!s.notes) return;
+  const n = s.notes;
+  out.append(el("span","meta", `Notes saved ${ago(s.notesAt)}`), el("h2","title", n.headline || sessTitle(s)));
+  const acts = el("div","row");
+  acts.append(btn("Copy notes", "", () => copyRich(notesText(s), notesHTML(s))), btn("Share", "", () => share(titleLine(s), notesText(s))), btn("Player recap", "ghost", () => share(titleLine(s), n.playerRecap || "")));
+  out.append(acts);
+  let x;
+  if (n.recap) { x = secEl("Recap"); x.append(prose(n.recap)); out.append(x); }
+  if (n.plot.length) { x = secEl("Plot developments", n.plot.length); x.append(listEl(n.plot, (li, p) => { if (p.major) li.classList.add("major"); li.append(el("span", null, p.text)); })); out.append(x); }
+  if (n.npcs.length) { x = secEl("NPCs", n.npcs.length); x.append(listEl(n.npcs, (li, p) => { named(li, p.name, p.note ? " — " + p.note : ""); if (p.status) li.append(el("span","pill " + p.status, p.status)); })); out.append(x); }
+  if (n.threads.length) { x = secEl("Quests & open threads", n.threads.length); x.append(listEl(n.threads, (li, p) => { li.append(el("span", null, p.text)); if (p.status) li.append(el("span","pill " + p.status, p.status)); })); out.append(x); }
+  if (n.locations.length) { x = secEl("Places", n.locations.length); x.append(listEl(n.locations, (li, p) => named(li, p.name, p.note ? " — " + p.note : ""))); out.append(x); }
+  if (n.loot.length) { x = secEl("Loot & rewards", n.loot.length); x.append(listEl(n.loot, (li, p) => named(li, p.item, (p.who ? " → " + p.who : "") + (p.note ? " — " + p.note : "")))); out.append(x); }
+  if (n.partyLearned.length) { x = secEl("What the party now knows", n.partyLearned.length); x.append(listEl(n.partyLearned, (li, p) => li.append(el("span", null, p)))); out.append(x); }
+  if (n.pcMoments.length) { x = secEl("Character moments", n.pcMoments.length); x.append(listEl(n.pcMoments, (li, p) => named(li, p.pc, " — " + p.text))); out.append(x); }
+  if (n.quotes.length) { x = secEl("Quotes", n.quotes.length); x.append(listEl(n.quotes, (li, p) => { const w = el("span"); w.append(el("span","quote", "“" + p.text + "”"), document.createTextNode(p.who ? " — " + p.who : "")); li.append(w); })); out.append(x); }
+  if (n.rulings.length) { x = secEl("Rulings", n.rulings.length); x.append(listEl(n.rulings, (li, p) => li.append(el("span", null, p)))); out.append(x); }
+  if (n.hooks.length) { x = secEl("Prep for next session", n.hooks.length); x.append(listEl(n.hooks, (li, p) => li.append(el("span", null, p)))); out.append(x); }
+  if (n.unclear.length) { x = secEl("Check these", n.unclear.length); x.append(listEl(n.unclear, (li, p) => li.append(el("span", null, p)))); out.append(x); }
+  if (n.playerRecap) { x = secEl("Player recap"); const box = el("div","player"); box.append(el("span","lbl","Safe to read aloud or post"), prose(n.playerRecap)); x.append(box); out.append(x); }
+}
+
+/* ---------- library: worlds → campaigns → arcs ---------- */
+function newWorld(name){ const w = {id:uid("w"), name:name.trim() || "New world", names:"", docs:[], createdAt:Date.now()}; S.worlds.set(w.id, w); put("worlds", w); return w; }
+function newCampaign(wid, name){ const c = {id:uid("c"), worldId:wid, name:name.trim() || "New campaign", pcs:[], npcs:[], docs:[], createdAt:Date.now()}; S.campaigns.set(c.id, c); put("campaigns", c); return c; }
+function newArc(cid, name){ const a = {id:uid("a"), campaignId:cid, name:name.trim() || "New arc", status:"active", summary:"", storySoFar:"", docs:[], order:arcsOf(cid).length, createdAt:Date.now()}; S.arcs.set(a.id, a); put("arcs", a); return a; }
+function newSession(cid, arcId){
+  const nums = sessionsOf(cid).map(s => Number(s.number)).filter(n => !isNaN(n));
+  const s = {id:uid("s"), campaignId:cid, arcId:arcId || null, title:"", number: nums.length ? Math.max(...nums) + 1 : 1, date:todayISO(), createdAt:Date.now(), updatedAt:Date.now(), startedAt:null, log:[], transcript:"", notes:null, notesAt:null};
+  S.sessions.set(s.id, s); saveSess(s, true); openSession(s.id);
+}
+function openSession(id){
+  if (S.sessId !== id) { if (L.on) stopCaptions(); if (R.on) stopRecording(); }
+  S.sessId = id; S.view = "table"; saveActive(); render(); $("main").scrollTop = 0;
+}
+const go = patch => { S.lib = {...S.lib, edit:null, q:"", ...patch}; render(); $("main").scrollTop = 0; };
+const edit = e => { S.lib.edit = e; render(); $("main").scrollTop = 0; };
+function crumbs(){
+  const box = el("nav","crumbs"); box.setAttribute("aria-label","Library path");
+  const add = (label, fn, last) => { if (box.childElementCount) box.append(el("span", null, "›")); if (last) { const b = el("span", null, label); b.style.color = "var(--fg)"; b.style.fontWeight = "700"; box.append(b); } else { const b = el("button", null, label); b.type = "button"; b.onclick = fn; box.append(b); } };
+  const {w, c, a} = S.lib; const Wd = w && S.worlds.get(w), C = c && S.campaigns.get(c), A = a && S.arcs.get(a);
+  const deepest = S.lib.edit ? "edit" : A ? "a" : C ? "c" : Wd ? "w" : "root";
+  add("Worlds", () => go({w:null, c:null, a:null}), deepest === "root");
+  if (Wd) add(Wd.name, () => go({c:null, a:null}), deepest === "w");
+  if (C) add(C.name, () => go({a:null}), deepest === "c");
+  if (A) add(A.name, () => go({}), deepest === "a");
+  return box;
+}
+function lsec(title, count, actions){
+  const s = el("section","lsec"); const h = el("div","lhead"); const t = el("h3", null, title); if (count != null) t.append(el("span","c", String(count)));
+  h.append(t, ...(actions || [])); s.append(h); return s;
+}
+function rows(items, make, empty){
+  const ul = el("ul","rows");
+  if (!items.length) { const li = el("li","muted", empty); ul.append(li); return ul; }
+  for (const it of items) { const li = el("li"); const r = make(it); const b = el("button"); b.type = "button"; b.append(el("span","t", r.t), el("span","r", r.r || "")); if (r.s) b.append(el("span","s", r.s)); if (r.n) b.querySelector(".t").prepend(el("span","n", r.n)); b.onclick = r.go; if (r.cur) li.setAttribute("aria-current","true"); li.append(b); ul.append(li); }
+  return ul;
+}
+function nameField(obj, storeName, label){
+  const f = el("label","field"); f.append(el("span","lbl", label));
+  const i = el("input","inp"); i.value = obj.name; i.onchange = () => { obj.name = i.value.trim() || obj.name; put(storeName, obj); renderHeader(); };
+  f.append(i); return f;
+}
+function sessRow(s){
+  const bits = [s.log.length ? `${s.log.length} logged` : "", s.transcript ? `${words(s.transcript).toLocaleString()} words heard` : "", s.notes ? "notes" : ""].filter(Boolean);
+  return {t:sessTitle(s), n:s.number !== "" && s.number != null ? "#" + s.number : "", r:fmtDate(s.date), s:bits.join(" · "), go:() => openSession(s.id), cur:s.id === S.sessId};
+}
+function docsSection(owner, kind, storeName){
+  const sec = lsec("Lore", owner.docs.length, [btn("+ Add", "sm", () => edit({type:"doc", kind, id:owner.id, doc:null}))]);
+  const imp = el("label","btn sm ghost", "Import files"); const fi = el("input"); fi.type = "file"; fi.multiple = true; fi.hidden = true; fi.accept = ".txt,.md,.markdown,.docx,.pdf,text/plain"; imp.append(fi);
+  fi.onchange = async () => {
+    const files = [...fi.files]; fi.value = ""; let ok = 0; const bad = [];
+    for (const f of files) {
+      try { const text = await fileText(f); if (!text.trim()) throw 0; owner.docs.push({id:uid("d"), title:f.name.replace(/\.[^.]+$/, ""), text, updatedAt:Date.now()}); ok++; }
+      catch { bad.push(f.name); }
+    }
+    if (ok) await put(storeName, owner);
+    toast(ok ? `Imported ${ok} file${ok === 1 ? "" : "s"}${bad.length ? `; couldn't read ${bad.join(", ")}` : ""}` : `Couldn't read ${bad.join(", ")}. Use .txt, .md, .docx or .pdf.`);
+    render();
+  };
+  sec.querySelector(".lhead").append(imp);
+  sec.append(rows(owner.docs, d => ({t:(d.auto ? "◆ " : "") + (d.title || "Untitled"), r:`${words(d.text).toLocaleString()} words`, s:str(d.text).slice(0, 120).replace(/\s+/g, " "), go:() => edit({type:"doc", kind, id:owner.id, doc:d.id})}), "Paste or import background, history, factions, anything Claude should know. Open a document and tap Organize to sort it into NPCs, characters and lore."));
+  if (owner.docs.some(d => d.auto)) sec.append(el("p","help","◆ Filed automatically from session notes and organized lore."));
+  return sec;
+}
+function renderLibrary(){
+  const v = $("v-library"); v.replaceChildren();
+  const {w, c, a} = S.lib;
+  if (w && !S.worlds.has(w)) S.lib.w = null; if (c && !S.campaigns.has(c)) S.lib.c = null; if (a && !S.arcs.has(a)) S.lib.a = null;
+  v.append(crumbs());
+  if (S.lib.edit) return renderEditor(v);
+  if (S.lib.a) return renderArc(v, S.arcs.get(S.lib.a));
+  if (S.lib.c) return renderCampaign(v, S.campaigns.get(S.lib.c));
+  if (S.lib.w) return renderWorld(v, S.worlds.get(S.lib.w));
+  renderWorlds(v);
+}
+function renderWorlds(v){
+  v.append(el("h2","title","Worlds"));
+  const cur = ctxOf(sess());
+  const grid = el("div","worlds");
+  for (const w of [...S.worlds.values()].sort((a,b) => a.createdAt - b.createdAt)) {
+    const cs = campaignsOf(w.id); const n = cs.reduce((t, c) => t + sessionsOf(c.id).length, 0);
+    const b = el("button","wcard" + (cur.w && cur.w.id === w.id ? " cur" : "")); b.type = "button";
+    b.append(el("span","wn", w.name), el("span","ws", `${cs.length} campaign${cs.length === 1 ? "" : "s"} · ${n} session${n === 1 ? "" : "s"}${w.docs.length ? ` · ${w.docs.length} lore` : ""}`));
+    b.onclick = () => go({w:w.id, c:null, a:null}); grid.append(b);
+  }
+  v.append(grid);
+  const add = el("div","card"); const i = el("input","inp"); i.placeholder = "New world name";
+  add.append(el("strong", null, "Add a world"), i, el("div","row"));
+  add.lastChild.append(btn("Create world", "primary", () => { if (!i.value.trim()) { i.focus(); return; } const w = newWorld(i.value); go({w:w.id}); }));
+  const imp = el("label","btn ghost","Import file"); const fi = el("input"); fi.type = "file"; fi.hidden = true; fi.accept = ".json,application/json"; fi.onchange = () => { const f = fi.files[0]; fi.value = ""; if (f) importAny(f); }; imp.append(fi);
+  add.lastChild.append(imp);
+  v.append(add);
+}
+function renderWorld(v, w){
+  v.append(el("span","eyebrow","World"), el("h2","title", w.name));
+  const cs = campaignsOf(w.id);
+  const sec = lsec("Campaigns", cs.length);
+  sec.append(rows(cs, c => { const ss = sessionsOf(c.id); const ar = arcsOf(c.id); return {t:c.name, r:`${ss.length} session${ss.length === 1 ? "" : "s"}`, s:[ar.length ? `${ar.length} arc${ar.length === 1 ? "" : "s"}` : "", c.pcs.length ? `${c.pcs.length} PCs` : "", c.npcs.length ? `${c.npcs.length} NPCs` : ""].filter(Boolean).join(" · "), go:() => go({c:c.id, a:null})}; }, "No campaigns in this world yet."));
+  const row = el("div","row"); const ni = el("input","inp grow"); ni.placeholder = "New campaign name"; ni.style.width = "auto";
+  row.append(ni, btn("Add", "primary", () => { if (!ni.value.trim()) { ni.focus(); return; } const c = newCampaign(w.id, ni.value); go({c:c.id}); }));
+  sec.append(row); v.append(sec);
+  v.append(docsSection(w, "world", "worlds"));
+  const ns = lsec("Names & places"); const ta = el("textarea","ta"); ta.value = w.names || ""; ta.placeholder = "One per line: towns, gods, factions, anything the transcript might misspell"; ta.style.minHeight = "160px";
+  ta.onchange = () => { w.names = ta.value; put("worlds", w); toast("Saved"); };
+  ns.append(el("p","help","Used for spelling in notes. Campaign NPCs and player characters are included automatically."), ta); v.append(ns);
+  const ss = lsec("World settings"); ss.append(nameField(w, "worlds", "World name"));
+  const r = el("div","row");
+  r.append(btn("Share world file", "ghost", () => exportWorld(w)));
+  const del = btn("Delete world", "danger", () => arm(del, "Tap again: deletes everything in it", async () => { await deleteWorld(w); go({w:null, c:null, a:null}); toast("World deleted"); }));
+  r.append(del); ss.append(el("p","help","A world file holds its lore, names, campaigns, characters, NPCs and arcs, but not your session notes. Good for sharing a setting with another DM."), r); v.append(ss);
+}
+function renderCampaign(v, c){
+  v.append(el("span","eyebrow","Campaign"), el("h2","title", c.name));
+  v.append(btn("+ New session", "primary block", () => newSession(c.id, null)));
+  const ar = arcsOf(c.id);
+  const as = lsec("Arcs", ar.length);
+  as.append(rows(ar, a => { const n = sessionsOf(c.id).filter(s => s.arcId === a.id).length; return {t:a.name, r:a.status || "", s:`${n} session${n === 1 ? "" : "s"}${a.summary ? " · " + a.summary.slice(0, 80).replace(/\s+/g, " ") : ""}`, go:() => go({a:a.id})}; }, "Group sessions into story arcs, each with its own notes and lore."));
+  const ar2 = el("div","row"); const ai = el("input","inp grow"); ai.placeholder = "New arc name"; ai.style.width = "auto";
+  ar2.append(ai, btn("Add arc", "", () => { if (!ai.value.trim()) { ai.focus(); return; } const a = newArc(c.id, ai.value); go({a:a.id}); }));
+  as.append(ar2); v.append(as);
+  const loose = sessionsOf(c.id).filter(s => !s.arcId || !S.arcs.has(s.arcId));
+  const ls = lsec(ar.length ? "Sessions not in an arc" : "Sessions", loose.length);
+  ls.append(rows(loose, sessRow, ar.length ? "Every session is in an arc." : "No sessions yet. Start one before you play."));
+  v.append(ls);
+  const ps = lsec("Player characters", c.pcs.length, [btn("+ Add", "sm", () => edit({type:"pc", id:c.id, item:null}))]);
+  ps.append(rows(c.pcs, p => ({t:p.name, r:p.player || "", s:[p.desc, p.notes && p.notes.slice(0, 80)].filter(Boolean).join(" · "), go:() => edit({type:"pc", id:c.id, item:p.id})}), "Add the party: name, player, race and class, backstory."));
+  v.append(ps);
+  const npcSec = lsec("NPCs", c.npcs.length, [btn("+ Add", "sm", () => edit({type:"npc", id:c.id, item:null}))]);
+  const listBox = el("div");
+  const drawNpcs = () => {
+    const q = S.lib.q.trim().toLowerCase();
+    const list = [...c.npcs].sort((a,b) => a.name.localeCompare(b.name)).filter(n => !q || (n.name + " " + n.role + " " + n.notes).toLowerCase().includes(q));
+    listBox.replaceChildren(rows(list, n => ({t:n.name, r:n.status || "", s:[n.role, n.notes && n.notes.slice(0, 80)].filter(Boolean).join(" · "), go:() => edit({type:"npc", id:c.id, item:n.id})}), q ? "No NPCs match." : "NPCs show up here from session notes, from “NPC” lines in the table log, or when you add them."));
+  };
+  if (c.npcs.length > 8) { const q = el("input","inp"); q.type = "search"; q.placeholder = "Search NPCs"; q.value = S.lib.q; q.oninput = () => { S.lib.q = q.value; drawNpcs(); }; npcSec.append(q); }
+  drawNpcs(); npcSec.append(listBox); v.append(npcSec);
+  v.append(docsSection(c, "campaign", "campaigns"));
+  const ss = lsec("Campaign settings"); ss.append(nameField(c, "campaigns", "Campaign name"));
+  const mv = el("label","field"); mv.append(el("span","lbl","World"));
+  const sel = el("select","inp"); for (const w of S.worlds.values()) { const o = el("option", null, w.name); o.value = w.id; sel.append(o); } sel.value = c.worldId;
+  sel.onchange = () => { c.worldId = sel.value; put("campaigns", c); go({w:c.worldId}); toast("Moved"); };
+  mv.append(sel); ss.append(mv);
+  const del = btn("Delete campaign", "danger", () => arm(del, "Tap again: deletes its sessions too", async () => { await deleteCampaign(c); go({c:null, a:null}); toast("Campaign deleted"); }));
+  ss.append(del); v.append(ss);
+}
+function renderArc(v, a){
+  const c = S.campaigns.get(a.campaignId);
+  v.append(el("span","eyebrow","Arc"), el("h2","title", a.name));
+  v.append(btn("+ New session in this arc", "primary block", () => newSession(c.id, a.id)));
+  const ss = sessionsOf(c.id).filter(s => s.arcId === a.id);
+  const sec = lsec("Sessions", ss.length); sec.append(rows(ss, sessRow, "No sessions in this arc yet.")); v.append(sec);
+  const sf = lsec("Story so far");
+  if (a.storySoFar) { const d = el("div","story", a.storySoFar); sf.append(d, el("p","help","Updated each time you file session notes for this arc.")); }
+  else sf.append(el("p","help","Fills in automatically when you file session notes for this arc."));
+  v.append(sf);
+  const ns = lsec("Arc notes"); const ta = el("textarea","ta"); ta.value = a.summary || ""; ta.placeholder = "What this arc is about, where it's headed, secrets, key NPCs and locations"; ta.style.minHeight = "180px";
+  ta.onchange = () => { a.summary = ta.value; put("arcs", a); toast("Saved"); };
+  ns.append(ta); v.append(ns);
+  if (!a.docs) a.docs = [];
+  v.append(docsSection(a, "arc", "arcs"));
+  const st = lsec("Arc settings"); st.append(nameField(a, "arcs", "Arc name"));
+  const f = el("label","field"); f.append(el("span","lbl","Status")); const sel = el("select","inp");
+  for (const [val, lab] of [["planned","Planned"],["active","Active"],["complete","Complete"]]) { const o = el("option", null, lab); o.value = val; sel.append(o); }
+  sel.value = a.status || "active"; sel.onchange = () => { a.status = sel.value; put("arcs", a); }; f.append(sel); st.append(f);
+  const del = btn("Delete arc", "danger", () => arm(del, "Tap again (sessions are kept)", async () => {
+    for (const s of S.sessions.values()) if (s.arcId === a.id) { s.arcId = null; saveSess(s, true); }
+    S.arcs.delete(a.id); await store.del("arcs", a.id).catch(() => {}); go({a:null}); toast("Arc deleted");
+  }));
+  st.append(el("p","help","Deleting an arc keeps its sessions; they move to “Sessions not in an arc.”"), del); v.append(st);
+}
+function organizeReview(scope, j, docTitle){
+  const c = scope.campaign, w = scope.world, src = docTitle ? `from “${docTitle}”` : "", groups = [];
+  if (c) {
+    const npcItems = [];
+    for (const x of arr(j.npcs)) { const name = str(x.name).trim(); if (!name || findByName(c.pcs, name)) continue; const ex = findByName(c.npcs, name); const role = str(x.role).trim(), notes = str(x.notes).trim(); const status = STATUSES.includes(str(x.status).toLowerCase()) ? str(x.status).toLowerCase() : "";
+      npcItems.push({label:name, pill: ex ? "update" : "new", detail:[role, notes].filter(Boolean).join(" · "), apply: async () => { const cur = findByName(c.npcs, name); if (cur) { if (role && !cur.role) cur.role = role; if (status && !cur.status) cur.status = status; if (notes && !str(cur.notes).includes(notes)) cur.notes = (cur.notes ? cur.notes + "\n\n" : "") + notes; } else c.npcs.push({id:uid("n"), name, role, status, notes, firstSeen:src}); }}); }
+    groups.push({title:`NPCs for ${c.name}`, items:npcItems});
+    const pcItems = [];
+    for (const x of arr(j.pcs)) { const name = str(x.name).trim(); if (!name) continue; const ex = findByName(c.pcs, name); const desc = str(x.desc).trim(), notes = str(x.notes).trim();
+      pcItems.push({label:name, pill: ex ? "update" : "new", detail:[desc, notes].filter(Boolean).join(" · "), apply: async () => { const cur = findByName(c.pcs, name); if (cur) { if (desc && !cur.desc) cur.desc = desc; if (notes && !str(cur.notes).includes(notes)) cur.notes = (cur.notes ? cur.notes + "\n\n" : "") + notes; } else c.pcs.push({id:uid("p"), name, player:"", desc, notes}); }}); }
+    groups.push({title:`Player characters in ${c.name}`, items:pcItems});
+  }
+  const owner = c || w;
+  const loreItems = [];
+  for (const x of arr(j.lore)) { const title = str(x.title).trim(), text = str(x.text).trim(); if (!title || !text) continue; loreItems.push({label:title, pill:str(x.category).toLowerCase() || "other", detail:text, apply: async () => appendLore(owner, x.category, title, text, "")}); }
+  groups.push({title:`Lore for ${owner.name}`, items:loreItems});
+  const have = new Set(str(w.names).split("\n").map(norm).filter(Boolean));
+  const newNames = [...new Set(arr(j.names).map(x => str(x).trim()).filter(x => x && x.length <= 60 && !have.has(norm(x))))];
+  if (newNames.length) groups.push({title:`Names & places for ${w.name}`, items:[{label:`Add ${newNames.length} name${newNames.length === 1 ? "" : "s"} to the spelling list`, detail:newNames.join(", "), apply: async () => { w.names = (str(w.names).trim() ? str(w.names).trimEnd() + "\n" : "") + newNames.join("\n"); }}]});
+  return {title:`Organized ${docTitle ? `“${docTitle}”` : "lore"}`, saveLabel:"Save to records", groups, finish: async () => { if (c) await put("campaigns", c); await put("worlds", w); }};
+}
+function renderEditor(v){
+  const e = S.lib.edit; const back = () => { S.lib.edit = null; render(); };
+  if (e.type === "doc") {
+    const storeName = e.kind === "world" ? "worlds" : e.kind === "campaign" ? "campaigns" : "arcs";
+    const owner = S[storeName].get(e.id); if (!owner) return back();
+    const d = e.doc ? owner.docs.find(x => x.id === e.doc) : null;
+    v.append(el("span","eyebrow", `${owner.name} · lore`), el("h2","title", d ? d.title || "Untitled" : "New lore"));
+    const ti = el("input","inp"); ti.placeholder = "Title, e.g. History of the Realm"; ti.value = d ? d.title : "";
+    const ta = el("textarea","ta read"); ta.value = d ? d.text : ""; ta.placeholder = "Paste lore here, or load it from a file.";
+    const tf = el("label","field"); tf.append(el("span","lbl","Title"), ti);
+    const bf = el("label","field"); bf.append(el("span","lbl","Text"), ta);
+    v.append(tf, bf);
+    const r = el("div","row");
+    const imp = el("label","btn ghost","Load from file"); const fi = el("input"); fi.type = "file"; fi.hidden = true; fi.accept = ".txt,.md,.markdown,.docx,.pdf,text/plain";
+    fi.onchange = async () => { const f = fi.files[0]; fi.value = ""; if (!f) return; try { const t = await fileText(f); ta.value = ta.value.trim() ? ta.value + "\n\n" + t : t; if (!ti.value.trim()) ti.value = f.name.replace(/\.[^.]+$/, ""); toast(`Loaded ${words(t).toLocaleString()} words`); } catch { toast("Couldn't read that file. Use .txt, .md, .docx or .pdf."); } };
+    imp.append(fi);
+    const save = async () => {
+      if (!ta.value.trim()) { ta.focus(); toast("Add some text first"); return null; }
+      let doc = d;
+      if (doc) { doc.title = ti.value.trim() || "Untitled"; doc.text = ta.value; doc.updatedAt = Date.now(); }
+      else { doc = {id:uid("d"), title:ti.value.trim() || "Untitled", text:ta.value, updatedAt:Date.now()}; owner.docs.push(doc); e.doc = doc.id; }
+      await put(storeName, owner); return doc;
+    };
+    r.append(btn("Save", "primary", async () => { if (await save()) { toast("Saved"); back(); } }), imp, btn("Cancel", "ghost", back));
+    v.append(r);
+    // organize this document into records with Claude
+    const world = e.kind === "world" ? owner : e.kind === "campaign" ? S.worlds.get(owner.worldId) : S.worlds.get(S.campaigns.get(owner.campaignId)?.worldId);
+    let campaign = e.kind === "campaign" ? owner : e.kind === "arc" ? S.campaigns.get(owner.campaignId) : null;
+    if (e.kind === "world" && campaignsOf(owner.id).length) {
+      const cs = campaignsOf(owner.id); if (!e.target) e.target = "";
+      const f = el("label","field"); f.append(el("span","lbl","When organizing, put NPCs and characters in"));
+      const sel = el("select","inp"); const o0 = el("option", null, "Nowhere (world lore only)"); o0.value = ""; sel.append(o0);
+      for (const cc of cs) { const o = el("option", null, cc.name); o.value = cc.id; sel.append(o); }
+      sel.value = e.target; sel.onchange = () => { e.target = sel.value; render(); }; f.append(sel);
+      campaign = e.target ? S.campaigns.get(e.target) : null;
+      if (d) v.append(f);
+    }
+    if (d && world) {
+      const key = "org:" + d.id, scope = {world, campaign};
+      if (S.reviews[key]) reviewCard(v, key, S.reviews[key]);
+      else exchangeCard(v, {key, title:"Organize with Claude", help:`Sorts this document into ${campaign ? "NPCs, player characters, " : ""}lore entries and spellings${campaign ? ` for ${campaign.name}` : ` for ${world.name}`}. Free with any Claude account. The document itself stays as it is.`,
+        prompts: () => organizePrompts(scope, {title:ti.value || d.title, text:ta.value || d.text}), onReply: j => organizeReview(scope, j, d.title)});
+    }
+    if (!d) v.append(el("p","help","Save it first, then open it again to sort it into NPCs, characters and lore with Claude."));
+    if (d) { const del = btn("Delete this lore", "danger", () => arm(del, "Tap again to delete", async () => { owner.docs = owner.docs.filter(x => x.id !== d.id); await put(storeName, owner); back(); })); v.append(del); }
+    v.append(el("p","help", "Claude reads lore as private background when writing notes. It never puts lore in the player recap unless it came up at the table."));
+    return;
+  }
+  const c = S.campaigns.get(e.id); if (!c) return back();
+  const isPc = e.type === "pc"; const list = isPc ? c.pcs : c.npcs;
+  const it = e.item ? list.find(x => x.id === e.item) : null;
+  v.append(el("span","eyebrow", `${c.name} · ${isPc ? "player character" : "NPC"}`), el("h2","title", it ? it.name : isPc ? "New player character" : "New NPC"));
+  const mk = (label, val, ph, area) => { const f = el("label","field"); const i = el(area ? "textarea" : "input", area ? "ta" : "inp"); i.value = val || ""; i.placeholder = ph || ""; if (area) i.style.minHeight = "220px"; f.append(el("span","lbl", label), i); v.append(f); return i; };
+  const name = mk("Name", it && it.name, isPc ? "Character name" : "NPC name");
+  let player, desc, role, status;
+  if (isPc) { player = mk("Player", it && it.player, "Who plays them"); desc = mk("Race, class, level", it && it.desc, "Half-elf paladin, level 6"); }
+  else {
+    role = mk("Who they are", it && it.role, "Innkeeper, rival, patron…");
+    const f = el("label","field"); status = el("select","inp");
+    for (const [val, lab] of [["","Not set"],["alive","Alive"],["dead","Dead"],["missing","Missing"],["unknown","Unknown"]]) { const o = el("option", null, lab); o.value = val; status.append(o); }
+    status.value = (it && it.status) || ""; f.append(el("span","lbl","Status"), status); v.append(f);
+  }
+  const notes = mk(isPc ? "Backstory, goals, secrets, session history" : "Notes, history, what the party knows", it && it.notes, "", true);
+  if (it && it.firstSeen) v.append(el("p","meta", "First seen: " + it.firstSeen));
+  const r = el("div","row");
+  r.append(btn("Save", "primary", async () => {
+    if (!name.value.trim()) { name.focus(); toast("Add a name"); return; }
+    const data = isPc ? {name:name.value.trim(), player:player.value.trim(), desc:desc.value.trim(), notes:notes.value} : {name:name.value.trim(), role:role.value.trim(), status:status.value, notes:notes.value};
+    if (it) Object.assign(it, data); else list.push({id:uid(isPc ? "p" : "n"), ...data});
+    await put("campaigns", c); toast("Saved"); back();
+  }), btn("Cancel", "ghost", back));
+  v.append(r);
+  if (it) { const del = btn(`Remove ${isPc ? "character" : "NPC"}`, "danger", () => arm(del, "Tap again to remove", async () => { const i = list.indexOf(it); if (i >= 0) list.splice(i, 1); await put("campaigns", c); back(); })); v.append(del); }
+}
+async function deleteCampaign(c){
+  for (const s of [...S.sessions.values()].filter(s => s.campaignId === c.id)) {
+    if (S.sessId === s.id) { if (R.on) await stopRecording(); if (L.on) stopCaptions(); S.sessId = null; }
+    await deleteAudio(s.id); S.sessions.delete(s.id); await store.del("sessions", s.id).catch(() => {});
+  }
+  for (const a of arcsOf(c.id)) { S.arcs.delete(a.id); await store.del("arcs", a.id).catch(() => {}); }
+  S.campaigns.delete(c.id); await store.del("campaigns", c.id).catch(() => {}); saveActive();
+}
+async function deleteWorld(w){ for (const c of campaignsOf(w.id)) await deleteCampaign(c); S.worlds.delete(w.id); await store.del("worlds", w.id).catch(() => {}); }
+
+/* ---------- import / export / migration ---------- */
+function partyToPcs(party){ return str(party).split("\n").map(l => l.trim()).filter(Boolean).map(l => { const [name, ...rest] = l.split(/\s[—–-]\s/); return {id:uid("p"), name:name.trim(), player:"", desc:rest.join(" — ").trim(), notes:""}; }); }
+async function migrate(){
+  for (const c of [...S.campaigns.values()]) {
+    let changed = false;
+    if (!c.worldId || !S.worlds.has(c.worldId)) { const w = {id:uid("w"), name:c.name, names:str(c.glossary), docs:[], createdAt:c.createdAt || Date.now()}; S.worlds.set(w.id, w); await store.put("worlds", w); c.worldId = w.id; changed = true; }
+    if (!Array.isArray(c.pcs)) { c.pcs = partyToPcs(c.party); changed = true; }
+    if (!Array.isArray(c.npcs)) { c.npcs = []; changed = true; }
+    if (!Array.isArray(c.docs)) { c.docs = []; changed = true; }
+    if ("party" in c || "glossary" in c) { delete c.party; delete c.glossary; changed = true; }
+    if (changed) await store.put("campaigns", c);
+  }
+  for (const w of S.worlds.values()) if (!Array.isArray(w.docs)) { w.docs = []; await store.put("worlds", w); }
+  for (const a of S.arcs.values()) if (!Array.isArray(a.docs)) { a.docs = []; await store.put("arcs", a); }
+}
+function exportWorld(w){
+  const cs = campaignsOf(w.id);
+  saveFile(slug(w.name) + ".world.json", JSON.stringify({type:"session-scribe-world", version:2, world:w, campaigns:cs, arcs:cs.flatMap(c => arcsOf(c.id))}, null, 1));
+}
+async function importAny(f){
+  let j; try { j = JSON.parse(await f.text()); } catch { toast("That file isn't a Session Scribe file"); return; }
+  try {
+    if (j && j.type === "session-scribe-backup") {
+      for (const x of arr(j.worlds)) { S.worlds.set(x.id, x); await store.put("worlds", x); }
+      for (const x of arr(j.campaigns)) { S.campaigns.set(x.id, x); await store.put("campaigns", x); }
+      for (const x of arr(j.arcs)) { S.arcs.set(x.id, x); await store.put("arcs", x); }
+      for (const x of arr(j.sessions)) { if (x.arcId === undefined) x.arcId = null; S.sessions.set(x.id, x); await store.put("sessions", x); }
+      if (j.settings && typeof j.settings === "object") { S.set = {...S.set, wModel:j.settings.wModel || S.set.wModel, wEngine:j.settings.wEngine || S.set.wEngine, lang:j.settings.lang || S.set.lang}; saveSet(); }
+      await migrate(); S.view = "library"; S.lib = {w:null, c:null, a:null, edit:null, q:""}; render(); toast("Backup restored"); return;
+    }
+    if (j && j.type === "session-scribe-world" && j.world) {
+      const w = {...j.world, id:uid("w"), name: j.world.name || "Imported world", names:str(j.world.names), docs:arr(j.world.docs), createdAt:Date.now()};
+      S.worlds.set(w.id, w); await store.put("worlds", w);
+      const cmap = {};
+      for (const c0 of arr(j.campaigns)) { const c = {...c0, id:uid("c"), worldId:w.id, pcs:arr(c0.pcs), npcs:arr(c0.npcs), docs:arr(c0.docs), createdAt:Date.now()}; cmap[c0.id] = c.id; S.campaigns.set(c.id, c); await store.put("campaigns", c); }
+      for (const a0 of arr(j.arcs)) { if (!cmap[a0.campaignId]) continue; const a = {...a0, id:uid("a"), campaignId:cmap[a0.campaignId], docs:arr(a0.docs), createdAt:Date.now()}; S.arcs.set(a.id, a); await store.put("arcs", a); }
+      S.view = "library"; S.lib = {w:w.id, c:null, a:null, edit:null, q:""}; render(); toast(`Added ${w.name}`); return;
+    }
+    const c0 = j && (j.type === "session-scribe-campaign" ? j.campaign : j);
+    if (!c0 || typeof c0.name !== "string") throw 0;
+    const w = newWorld(c0.name); w.names = str(c0.glossary); await store.put("worlds", w);
+    const c = newCampaign(w.id, c0.name); c.pcs = partyToPcs(c0.party); await store.put("campaigns", c);
+    S.view = "library"; S.lib = {w:w.id, c:c.id, a:null, edit:null, q:""}; render(); toast(`Added ${c0.name}`);
+  } catch { toast("That file isn't a Session Scribe world, campaign or backup"); }
+}
+$("obImport").onchange = e => { const f = e.target.files[0]; e.target.value = ""; if (f) importAny(f); };
+$("bImport").onchange = e => { const f = e.target.files[0]; e.target.value = ""; if (f) importAny(f); };
+$("obCancel").onclick = () => { S.view = "library"; render(); };
+$("obCreate").onclick = () => {
+  const wn = $("obWorld").value.trim(), cn = $("obCamp").value.trim();
+  if (!wn) { $("obWorld").focus(); toast("Name your world"); return; }
+  const w = newWorld(wn); const c = newCampaign(w.id, cn || "First campaign");
+  $("obWorld").value = ""; $("obCamp").value = "";
+  S.view = "library"; S.lib = {w:w.id, c:c.id, a:null, edit:null, q:""}; render();
+};
+
+/* ---------- settings ---------- */
+function renderSettings(){
+  const sel = $("wModel");
+  if (!sel.options.length) for (const m of MODELS) { const o = el("option", null, `${m.label} (${m.size})`); o.value = m.k; sel.append(o); }
+  sel.value = modelInfo().k; $("wEngine").value = S.set.wEngine || "auto"; $("lang").value = S.set.lang || "en-US";
+  renderStorage();
+}
+async function renderStorage(){
+  try { const est = navigator.storage && navigator.storage.estimate ? await navigator.storage.estimate() : null; $("storeMeta").textContent = est ? `This app is using ${mb(est.usage || 0)} on this phone, including downloaded models and recordings.` : ""; } catch { $("storeMeta").textContent = ""; }
+}
+$("wModel").onchange = e => { S.set.wModel = e.target.value; saveSet(); $("wDlMeta").textContent = ""; };
+$("wEngine").onchange = e => { S.set.wEngine = e.target.value; saveSet(); };
+$("lang").onchange = e => { S.set.lang = e.target.value; saveSet(); };
+$("wDownload").onclick = async () => {
+  const m = $("wDlMeta"), bar = $("wDlBar"), fill = $("wDlFill"); m.classList.remove("err","ok");
+  $("wDownload").disabled = true; m.textContent = "Getting ready…"; keepAwake();
+  try {
+    await getASR((l, t) => { bar.hidden = false; fill.style.width = Math.round(l / t * 100) + "%"; m.textContent = `Downloading ${mb(l)} of ${mb(t)}…`; });
+    bar.hidden = true; m.textContent = `Ready · runs on the ${W.device === "webgpu" ? "graphics chip" : "processor"}`; m.classList.add("ok");
+  } catch (e) { bar.hidden = true; m.textContent = wErr(e); m.classList.add("err"); }
+  $("wDownload").disabled = false; renderStorage();
+};
+$("wClear").onclick = () => arm($("wClear"), "Tap again to remove", async () => {
+  try { if (W.asr) { try { await W.asr.dispose(); } catch {} W.asr = null; W.key = null; } const keys = await caches.keys(); for (const k of keys) if (/transformers/i.test(k)) await caches.delete(k); toast("Downloaded models removed"); } catch { toast("Couldn't remove the models"); }
+  renderStorage();
+});
+$("bExport").onclick = () => saveFile(`session-scribe-backup-${todayISO()}.json`, JSON.stringify({type:"session-scribe-backup", version:3, exportedAt:Date.now(), settings:S.set, worlds:[...S.worlds.values()], campaigns:[...S.campaigns.values()], arcs:[...S.arcs.values()], sessions:[...S.sessions.values()]}));
+
+/* ---------- boot ---------- */
+(async () => {
+  for (const [n, m] of [["worlds", S.worlds], ["campaigns", S.campaigns], ["arcs", S.arcs], ["sessions", S.sessions]]) { try { for (const x of await store.all(n)) m.set(x.id, x); } catch {} }
+  try { const st = await store.get("kv", "settings"); if (st) S.set = {...S.set, wModel:st.wModel || S.set.wModel, wEngine:st.wEngine || S.set.wEngine, lang:st.lang || S.set.lang}; } catch {}
+  await migrate().catch(() => {});
+  for (const s of S.sessions.values()) if (s.arcId === undefined) s.arcId = null;
+  try { const a = await store.get("kv", "active"); if (a && S.sessions.has(a.sessId)) S.sessId = a.sessId; } catch {}
+  if (!S.sessId) { const latest = [...S.sessions.values()].sort((a,b) => (b.updatedAt||0) - (a.updatedAt||0))[0]; if (latest) S.sessId = latest.id; }
+  if (S.sessId) { const {c} = ctxOf(sess()); S.lib = {w:c ? c.worldId : null, c:c ? c.id : null, a:null, edit:null, q:""}; S.view = "table"; }
+  else { S.view = "library"; if (S.worlds.size === 1) S.lib.w = [...S.worlds.keys()][0]; }
+  render();
+  if (!persistentOK) toast("This browser won't keep data. Open the app from the home-screen icon.");
+  if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+  if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
+})();
+window.addEventListener("beforeunload", e => { if (R.on || J.busy) { e.preventDefault(); e.returnValue = ""; } });
+})();
+</script>
+</body>
+</html>

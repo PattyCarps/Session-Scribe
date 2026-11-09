@@ -41,7 +41,7 @@
      iOS 26 releases a home-screen app's page stops short of the screen bottom while still reporting
      the home-indicator inset, which reserves that space twice. */
   --safe-top:env(safe-area-inset-top, 0px); --safe-bottom:env(safe-area-inset-bottom, 0px);
-  --hdr:calc(var(--safe-top) + 64px);
+  --hdr:calc(var(--safe-top) + 80px);
   --glass:rgba(24,32,38,.72); --glass-hi:rgba(255,255,255,.07); --glass-line:rgba(255,255,255,.10); --glass-shadow:0 10px 30px rgba(0,0,0,.45), 0 1px 0 rgba(255,255,255,.06) inset;
   --hdr-glass:rgba(17,22,26,.92);
   color-scheme:dark;
@@ -71,7 +71,7 @@ button,.btn,.tag,summary,label.btn,nav.tabs button,.switch{touch-action:manipula
 
 /* glass header: the page scrolls underneath it */
 header.top,nav.tabs{-webkit-font-smoothing:antialiased}
-header.top{position:absolute;top:0;left:0;right:0;z-index:5;isolation:isolate;border-bottom:1px solid var(--glass-line);padding-top:calc(var(--safe-top) + 8px);padding-bottom:10px;padding-left:var(--gut-l);padding-right:var(--gut-r);display:flex;align-items:center;gap:12px}
+header.top{position:absolute;top:0;left:0;right:0;z-index:5;isolation:isolate;border-bottom:1px solid var(--glass-line);padding-top:calc(var(--safe-top) + 22px);padding-bottom:12px;padding-left:var(--gut-l);padding-right:var(--gut-r);display:flex;align-items:center;gap:12px}
 header.top::before,nav.tabs::before{content:"";position:absolute;inset:0;z-index:-1;border-radius:inherit;pointer-events:none}
 header.top::before{background:var(--hdr-glass);-webkit-backdrop-filter:blur(22px) saturate(170%);backdrop-filter:blur(22px) saturate(170%)}
 nav.tabs::before{background:var(--glass);-webkit-backdrop-filter:blur(24px) saturate(180%);backdrop-filter:blur(24px) saturate(180%)}
@@ -244,7 +244,7 @@ mark{background:color-mix(in srgb, var(--accent) 32%, transparent);color:var(--f
 .journal .arc{font-family:var(--f-mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-top:22px;padding-bottom:4px;border-bottom:1px solid var(--line)}
 .journal .jd{font-family:var(--f-mono);font-size:12px;color:var(--muted)}
 .journal .items{margin-top:6px}
-.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(max(10px, calc(var(--safe-bottom) - 8px)) + 80px);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:700;font-size:14px;z-index:9;max-width:calc(100% - 32px);text-align:center}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(max(10px, calc(var(--safe-bottom) - 8px)) + 80px);background:var(--fg);color:var(--bg);padding:11px 18px;border-radius:20px;font-weight:700;font-size:14px;line-height:1.4;z-index:9;width:max-content;max-width:min(480px, calc(100% - 32px));text-align:center;box-shadow:0 8px 30px rgba(0,0,0,.35)}
 @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
 /* the display face's default numerals are old-style ("1" reads like "I"); use regular ones */
 /* Safari ignores font-variant-numeric on this face, so switch the lining-figures feature on directly */
@@ -420,11 +420,11 @@ const TAGMAP = Object.fromEntries(TAGS.map(t => [t.k, t]));
 /* Whisper models (ONNX builds that run in the browser) */
 const TJS_CDN = "https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.3.1"; // only used if the bundled copy is missing
 /* Built-in language models (open source, run on this phone through the same engine as Whisper) */
+// Notes AI runs through WebLLM, which loads the model onto the graphics chip piece by piece.
 const LLMS = [
-  {k:"qwen05",  id:"onnx-community/Qwen2.5-0.5B-Instruct", label:"Qwen2.5 0.5B · fastest, simplest notes", size:"about 480 MB"},
-  {k:"llama1b", id:"onnx-community/Llama-3.2-1B-Instruct", label:"Llama 3.2 1B · recommended",            size:"about 1.1 GB"},
-  {k:"gemma1b", id:"onnx-community/gemma-3-1b-it-ONNX",    label:"Gemma 3 1B · good writer",              size:"about 1 GB", gpuDtype:"q4"},
-  {k:"qwen15",  id:"onnx-community/Qwen2.5-1.5B-Instruct", label:"Qwen2.5 1.5B · best notes, heaviest",   size:"about 1.3 GB"},
+  {k:"qwen05",  id:"Qwen2.5-0.5B-Instruct", label:"Qwen2.5 0.5B · fastest, simplest notes", size:"about 300 MB"},
+  {k:"llama1b", id:"Llama-3.2-1B-Instruct", label:"Llama 3.2 1B · recommended",            size:"about 700 MB"},
+  {k:"qwen15",  id:"Qwen2.5-1.5B-Instruct", label:"Qwen2.5 1.5B · best notes, heaviest",   size:"about 900 MB"},
 ];
 const MODELS = [
   {k:"tiny",   id:"onnx-community/whisper-tiny.en",        label:"Tiny · fastest, least accurate",        size:"about 75 MB"},
@@ -883,6 +883,20 @@ const modelStore = {
   },
   async put(key, res){ return (await caches.open("transformers-cache")).put(String(key && key.url || key), res); },
 };
+// The old notes-AI files (before the switch to WebLLM) can be over a gigabyte; remove them once.
+async function dropOldNotesModels(){
+  if (lsGet("scribe-old-llm-cleared")) return;
+  const old = ["onnx-community/Qwen2.5-0.5B-Instruct/","onnx-community/Llama-3.2-1B-Instruct/","onnx-community/gemma-3-1b-it-ONNX/","onnx-community/Qwen2.5-1.5B-Instruct/"];
+  const isOld = u => old.some(o => u.includes(o));
+  try {
+    const done = lsGet(DONEKEY) || {};
+    for (const n of Object.keys(done)) if (isOld(decodeURIComponent(n))) delete done[n];
+    lsSet(DONEKEY, done);
+    try { const d = await (await navigator.storage.getDirectory()).getDirectoryHandle("models"); const gone = []; for await (const [n] of d.entries()) if (isOld(decodeURIComponent(n))) gone.push(n); for (const n of gone) await d.removeEntry(n).catch(() => {}); } catch {}
+    const c = await caches.open("transformers-cache"); for (const r of await c.keys()) if (isOld(r.url)) await c.delete(r);
+    lsSet("scribe-old-llm-cleared", 1);
+  } catch {}
+}
 async function clearModelFiles(){
   try { const root = await navigator.storage.getDirectory(); await root.removeEntry("models", {recursive:true}); } catch {}
   lsSet(DONEKEY, null);
@@ -967,10 +981,17 @@ function checkLastLoad(){
     : `${name} didn't finish loading last time, most likely because the phone ran short on memory. Close other apps and try again, or pick a smaller model in Settings.`;
   S.loadNotice = {kind:l.kind, msg};
 }
+let WEBLLM = null;
+async function loadWebLLM(){
+  if (WEBLLM) return WEBLLM;
+  try { WEBLLM = await import(new URL("lib/web-llm.min.js", location.href).href); } catch { throw {kind:"offline"}; }
+  return WEBLLM;
+}
 async function llmTarget(){
-  const m = llmInfo(); const gpu = await gpuInfo(); const device = gpu ? "webgpu" : "wasm";
-  const dtype = device === "webgpu" ? (m.gpuDtype || (gpu && gpu.f16 ? "q4f16" : "q4")) : "q4";
-  return {m, gpu, device, dtype, key:m.k + "|" + device};
+  const m = llmInfo(), gpu = await gpuInfo();
+  if (!gpu) throw {kind:"nogpu"};
+  const id = `${m.id}-${gpu.f16 ? "q4f16_1" : "q4f32_1"}-MLC`;
+  return {m, gpu, device:"webgpu", id, key:id};
 }
 function asrDtype(m, dev, f16){ return dev === "webgpu" ? {encoder_model: m.big ? "q4" : (f16 ? "fp16" : "fp32"), decoder_model_merged: "q4"} : {encoder_model: "q8", decoder_model_merged: "q8"}; }
 async function asrTarget(){
@@ -981,9 +1002,15 @@ async function asrTarget(){
   return {m, pref, gpu, device, dtype:asrDtype(m, device, gpu && gpu.f16), key:m.k + "|" + device};
 }
 async function fetchModel(kind, onProgress, onFile){
+  if (kind === "llm") {
+    const t = await llmTarget(), W = await loadWebLLM();
+    let had = false; try { had = await W.hasModelInCache(t.id, W.prebuiltAppConfig); } catch {}
+    await getLLM(onProgress ? (f, phase) => onProgress(f, 1, phase) : null);
+    return {fetched: had ? 0 : 1, target:t};
+  }
   const T = await loadEngine();
-  const t = kind === "asr" ? await asrTarget() : await llmTarget();
-  const task = kind === "asr" ? "automatic-speech-recognition" : "text-generation";
+  const t = await asrTarget();
+  const task = "automatic-speech-recognition";
   let files;
   try { files = await T.ModelRegistry.get_pipeline_files(task, t.m.id, {device:t.device, dtype:t.dtype}); }
   catch (e) { if (/fetch|network|Failed/i.test(String(e && e.message || e))) throw {kind:"offline"}; throw e; }
@@ -993,16 +1020,28 @@ async function fetchModel(kind, onProgress, onFile){
 // Only one model fits in memory comfortably on a phone, so loading one frees the other.
 async function freeLLM(){ if (AI.llm) { try { await AI.llm.dispose(); } catch {} AI.llm = null; AI.key = null; } }
 async function freeASR(){ if (W.asr) { try { await W.asr.dispose(); } catch {} W.asr = null; W.key = null; } }
+// onProgress(fraction, phase) with phase "download" or "load"
 async function getLLM(onProgress){
   const t = await llmTarget();
   if (AI.llm && AI.key === t.key) return AI.llm;
   if (AI.loading) return AI.loading;
   await freeASR(); await freeLLM();
   AI.loading = (async () => {
-    const T = await loadEngine();
-    await fetchModel("llm", onProgress);
-    AI.llm = await guardedLoad("llm", t.m.k, t.device, () => T.pipeline("text-generation", t.m.id, {device:t.device, dtype:t.dtype}));
-    AI.key = t.key; AI.device = t.device; return AI.llm;
+    const W = await loadWebLLM();
+    // only the loading step counts for the memory check; closing the app mid-download isn't a crash
+    const report = r => { if (!r) return; const txt = str(r.text), phase = /fetch/i.test(txt) ? "download" : "load";
+      lsSet(LOADKEY, phase === "load" ? {kind:"llm", k:t.m.k, device:"webgpu", t:Date.now()} : null);
+      if (onProgress) onProgress(Math.max(0, Math.min(1, +r.progress || 0)), phase); };
+    let eng;
+    try { eng = await guardedLoad("llm", t.m.k, "webgpu", () => W.CreateMLCEngine(t.id, {appConfig:W.prebuiltAppConfig, initProgressCallback:report}, {context_window_size:4096})); }
+    catch (e) { const m = String(e && e.message || e); if (/fetch|network|Failed|Load failed/i.test(m)) throw {kind:"offline"}; throw e; }
+    const fn = async (messages, o = {}) => {
+      const r = await eng.chat.completions.create({messages, max_tokens:o.max_new_tokens || 400, temperature:0, repetition_penalty:o.repetition_penalty || 1.1, stream:false});
+      const content = str(r && r.choices && r.choices[0] && r.choices[0].message && r.choices[0].message.content);
+      return [{generated_text:[...messages, {role:"assistant", content}]}];
+    };
+    fn.dispose = () => eng.unload();
+    AI.llm = fn; AI.key = t.key; AI.device = "webgpu"; return fn;
   })();
   try { return await AI.loading; } finally { AI.loading = null; }
 }
@@ -1439,7 +1478,16 @@ function appendLore(owner, category, title, text, source, secret){
 
 /* ---------- built-in AI (runs on this phone) ---------- */
 // Small models follow simple labelled text far more reliably than JSON, so prompts ask for headings and bullets.
+// The notes AI reads at most about 4,000 tokens at once; trim the quoted text if a prompt runs long.
+function fitPrompt(prompt, maxTokens){
+  const limit = Math.floor((4096 - maxTokens - 160) * 3);
+  if (prompt.length <= limit) return prompt;
+  const over = prompt.length - limit, m = /"""\n([\s\S]*?)\n"""/.exec(prompt);
+  if (m && m[1].length > over + 200) { const cut = m[1].slice(0, m[1].length - over - 40); return prompt.slice(0, m.index + 4) + cut + prompt.slice(m.index + 4 + m[1].length); }
+  return prompt.slice(0, limit);
+}
 async function ask(llm, prompt, maxTokens){
+  prompt = fitPrompt(prompt, maxTokens);
   const out = await llm([{role:"user", content:prompt}], {max_new_tokens:maxTokens, do_sample:false, repetition_penalty:1.1});
   const g = out && out[0] && out[0].generated_text;
   const t = typeof g === "string" ? g : Array.isArray(g) ? str(g[g.length - 1] && g[g.length - 1].content) : "";
@@ -1505,8 +1553,9 @@ function aiErr(e){
   if (!e) return "Something went wrong. Try again.";
   if (e.kind === "abort") return "Stopped.";
   if (e.kind === "offline") return "Couldn't load the AI engine. The first time needs an internet connection to download the model.";
+  if (e.kind === "nogpu") return "The built-in AI needs the phone's graphics chip, which this browser doesn't offer. On iPhone it needs iOS 26 or later. You can still use Claude instead.";
   const m = String(e.message || e);
-  if (/memory|allocation|OOM|out of range|Aborted/i.test(m)) return "The phone ran out of memory for this model. Pick a smaller built-in AI model in Settings, or use Claude instead.";
+  if (/memory|allocation|OOM|out of range|Aborted|device lost|DeviceLost/i.test(m)) return "The phone ran out of memory for this model. Pick a smaller built-in AI model in Settings, or use Claude instead.";
   if (/fetch|network|Failed to load|404/i.test(m)) return "Couldn't download the AI model. Check your connection, or try a different model in Settings.";
   return "The built-in AI hit a problem: " + m.slice(0, 160) + ". A smaller model in Settings, or Claude, may help.";
 }
@@ -1523,7 +1572,7 @@ async function localNotes(s, ui){
   const llm = await getLLM(ui.dl);
   const K = knownNames(s), passages = lorePassages(s);
   const namesLine = K.all.slice(0, 70).join(", ") || "(none yet)";
-  const chunks = splitWords((s.transcript || "").trim(), 1400), n = chunks.length;
+  const chunks = splitWords((s.transcript || "").trim(), 1100), n = chunks.length;
   const steps = n + (a ? 4 : 3);
   const events = [], people = new Map(), places = new Map(), items = [], quotes = [];
   const seenEv = new Set(), seenItem = new Set(), seenQuote = new Set();
@@ -1850,7 +1899,7 @@ function jobBlock(key, label, cls, run){
   const msg = el("span","meta msg"); msg.id = "jm-" + key; if (JOB.key === key) { msg.textContent = JOB.msg; msg.classList.toggle("err", JOB.err); }
   wrap.append(r, bar, msg); return wrap;
 }
-const dlMsg = key => (l, t) => jobSet(key, `Downloading the built-in AI (one time): ${mb(l)} of ${mb(t)}`, l / t);
+const dlMsg = key => (f, phase) => jobSet(key, phase === "load" ? `Loading the built-in AI onto the graphics chip… ${Math.round(f * 100)}%` : `Downloading the built-in AI (one time): ${Math.round(f * 100)}%`, f);
 
 /* ---------- notes view ---------- */
 function normalizeNotes(n){
@@ -2527,10 +2576,15 @@ function dlButton(kind, btn, meta, bar, fill){
     if (J.busy) { toast("Something else is running. Wait for it to finish."); return; }
     meta.classList.remove("err","ok"); btn.disabled = true; meta.textContent = "Getting ready…"; keepAwake(); if (busy) J.busy = true;
     try {
-      const r = await fetchModel(kind, (l, t) => { bar.hidden = false; fill.style.width = Math.round(l / t * 100) + "%"; meta.textContent = `Downloading ${mb(l)} of ${mb(t)}… keep the app open`; });
+      const r = await fetchModel(kind, (l, t, phase) => {
+        bar.hidden = false; fill.style.width = Math.round(l / t * 100) + "%";
+        meta.textContent = phase === "load" ? `Loading onto the graphics chip… ${Math.round(l / t * 100)}%`
+          : kind === "llm" ? `Downloading… ${Math.round(l / t * 100)}%. Keep the app open.` : `Downloading ${mb(l)} of ${mb(t)}… keep the app open`;
+      });
       bar.hidden = true;
       const where = r.target.device === "webgpu" ? "graphics chip" : "processor";
-      meta.textContent = r.fetched ? `Downloaded · runs on the ${where}. It loads when you use it.` : `Already on this phone · runs on the ${where}.`;
+      meta.textContent = kind === "llm" ? (r.fetched ? "Downloaded and tested · ready to write notes." : "On this phone and working · ready to write notes.")
+        : r.fetched ? `Downloaded · runs on the ${where}. It loads when you use it.` : `Already on this phone · runs on the ${where}.`;
       meta.classList.add("ok");
     } catch (e) {
       bar.hidden = true; meta.classList.add("err");
@@ -2552,7 +2606,7 @@ $("wModel").onchange = e => { S.set.wModel = e.target.value; saveSet(); $("wDlMe
 $("wEngine").onchange = e => { S.set.wEngine = e.target.value; saveSet(); const c = lsGet(CRASHKEY) || {}; for (const k of Object.keys(c)) if (k.startsWith("asr|")) delete c[k]; lsSet(CRASHKEY, c); };
 $("lang").onchange = e => { S.set.lang = e.target.value; saveSet(); };
 $("wClear").onclick = () => arm($("wClear"), "Tap again to remove", async () => {
-  try { await freeASR(); await freeLLM(); const keys = await caches.keys(); for (const k of keys) if (/transformers/i.test(k)) await caches.delete(k); await clearModelFiles(); toast("Downloaded models removed"); } catch { toast("Couldn't remove the models"); }
+  try { await freeASR(); await freeLLM(); const keys = await caches.keys(); for (const k of keys) if (/transformers|webllm/i.test(k)) await caches.delete(k); await clearModelFiles(); toast("Downloaded models removed"); } catch { toast("Couldn't remove the models"); }
   renderStorage();
 });
 $("bExport").onclick = () => saveFile(`session-scribe-backup-${todayISO()}.json`, JSON.stringify({type:"session-scribe-backup", version:3, exportedAt:Date.now(), settings:S.set, worlds:[...S.worlds.values()], campaigns:[...S.campaigns.values()], arcs:[...S.arcs.values()], sessions:[...S.sessions.values()]}));
@@ -2604,6 +2658,7 @@ fixViewport();
   if (!persistentOK) toast("This browser won't keep data. Open the app from the home-screen icon.");
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
   checkLastLoad(); if (S.loadNotice) toast(S.loadNotice.msg, 9000);
+  setTimeout(() => dropOldNotesModels().then(() => { if (S.view === "settings") renderStorage(); }), 3000);
   if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
 })();
 window.addEventListener("beforeunload", e => { if (R.on || J.busy) { e.preventDefault(); e.returnValue = ""; } });

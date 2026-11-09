@@ -828,6 +828,7 @@ async function loadEngine(){
   try { T = await import(new URL("lib/transformers.min.js", location.href).href); }
   catch { try { T = await import(TJS_CDN); } catch { throw {kind:"offline"}; } }
   T.env.allowLocalModels = false;
+  T.env.useCustomCache = true; T.env.customCache = modelStore;
   // The runtime ships gzipped (hosts cap single files at 25 MB); unpack it on the phone.
   // If anything goes wrong, the engine falls back to fetching the same file from jsDelivr.
   try {
@@ -849,48 +850,94 @@ async function loadEngine(){
 // engine fetch them itself holds a whole file in memory (twice while it's saved), and on an iPhone a big
 // model can push the app over its memory limit, so iOS closes and reloads it partway through.
 const HF_BASE = "https://huggingface.co/";
-let streamPutOK = null;
-async function canStreamToCache(){
-  if (streamPutOK !== null) return streamPutOK;
+// Big files are written to the app's private file storage (by dl-worker.js) a few MB at a time, and an
+// interrupted download continues from where it stopped. Small files go in the normal cache.
+const DONEKEY = "scribe-models", BIG = 8 << 20;
+const W2 = {ok:null, worker:null, seq:0, wait:new Map()};
+function wcall(msg, transfer){ return new Promise((res, rej) => { const id = ++W2.seq; W2.wait.set(id, {res, rej}); W2.worker.postMessage({...msg, id}, transfer || []); }); }
+async function fileStoreReady(){
+  if (W2.ok !== null) return W2.ok;
   try {
-    const c = await caches.open("session-scribe-probe");
-    await c.put(new URL("probe", location.href).href, new Response(new ReadableStream({start(ctl){ ctl.enqueue(new Uint8Array([1,2,3])); ctl.close(); }})));
-    streamPutOK = true;
-  } catch { streamPutOK = false; }
-  try { await caches.delete("session-scribe-probe"); } catch {}
-  return streamPutOK;
+    if (!navigator.storage || !navigator.storage.getDirectory || typeof Worker === "undefined") throw 0;
+    const w = new Worker(new URL("dl-worker.js", location.href));
+    w.onmessage = e => { const p = W2.wait.get(e.data.id); if (p) { W2.wait.delete(e.data.id); e.data.ok ? p.res(e.data) : p.rej(new Error(e.data.error)); } };
+    w.onerror = () => { for (const p of W2.wait.values()) p.rej(new Error("storage worker failed")); W2.wait.clear(); };
+    W2.worker = w;
+    await Promise.race([wcall({op:"ping"}), new Promise((_, rej) => setTimeout(() => rej(0), 5000))]);
+    W2.ok = true;
+  } catch { W2.ok = false; }
+  return W2.ok;
+}
+const fileName = url => url.startsWith(HF_BASE) ? encodeURIComponent(url.slice(HF_BASE.length)).slice(0, 240) : null;
+const modelStore = {
+  async match(key){
+    const url = String(key && key.url || key), name = fileName(url);
+    if (name && (lsGet(DONEKEY) || {})[name]) {
+      try {
+        const root = await navigator.storage.getDirectory(), d = await root.getDirectoryHandle("models");
+        const f = await (await d.getFileHandle(name)).getFile();
+        if (f.size === lsGet(DONEKEY)[name]) return new Response(f, {headers:{"content-length":String(f.size), "content-type":"application/octet-stream"}});
+      } catch {}
+    }
+    try { return await (await caches.open("transformers-cache")).match(url); } catch { return undefined; }
+  },
+  async put(key, res){ return (await caches.open("transformers-cache")).put(String(key && key.url || key), res); },
+};
+async function clearModelFiles(){
+  try { const root = await navigator.storage.getDirectory(); await root.removeEntry("models", {recursive:true}); } catch {}
+  lsSet(DONEKEY, null);
+}
+async function bigDownload(t, report){
+  const name = fileName(t.url);
+  let at = (await wcall({op:"open", name})).size;
+  try {
+    if (at > t.size) { at = (await wcall({op:"open", name, truncate:true})).size; }
+    if (at < t.size) {
+      let res = await fetch(t.url, {cache:"no-store", headers: at ? {Range:`bytes=${at}-`} : {}});
+      if (at && res.status === 200) at = (await wcall({op:"open", name, truncate:true})).size; // server ignored the resume: start over
+      else if (at && res.status !== 206) throw new Error(`Download failed (${res.status}) for ${t.f}`);
+      if (!at && !res.ok) throw new Error(`Download failed (${res.status}) for ${t.f}`);
+      report(at);
+      const reader = res.body.getReader(); let pend = [], pendN = 0;
+      const flush = async () => {
+        if (!pendN) return;
+        const buf = new Uint8Array(pendN); let o = 0; for (const c of pend) { buf.set(c, o); o += c.byteLength; }
+        pend = []; const n = pendN; pendN = 0;
+        await wcall({op:"write", buf:buf.buffer, at}, [buf.buffer]); at += n; report(at);
+      };
+      for (;;) { const {done, value} = await reader.read(); if (done) break; pend.push(value); pendN += value.byteLength; if (pendN >= (4 << 20)) await flush(); }
+      await flush();
+    }
+  } finally {
+    const fin = await wcall({op:"close"}).catch(() => ({size:-1}));
+    if (fin.size === t.size) { const d = lsGet(DONEKEY) || {}; d[name] = t.size; lsSet(DONEKEY, d); }
+    else if (fin.size > t.size) await wcall({op:"open", name, truncate:true}).then(() => wcall({op:"close"})).catch(() => {});
+  }
+  if (!(lsGet(DONEKEY) || {})[name]) throw new Error(`Download of ${t.f} stopped early`);
 }
 // files: names inside the model's repository. Skips anything already saved, so a second tap resumes.
 async function downloadFiles(T, id, files, onProgress, onFile){
-  const cache = await caches.open(T.env.cacheKey || "transformers-cache");
+  const cache = await caches.open("transformers-cache");
   const todo = [];
-  for (const f of [...new Set(files)]) { const url = HF_BASE + id + "/resolve/main/" + f; if (!(await cache.match(url))) todo.push({f, url}); }
+  for (const f of [...new Set(files)]) { const url = HF_BASE + id + "/resolve/main/" + f; if (!(await modelStore.match(url))) todo.push({f, url}); }
   if (!todo.length) return {fetched:0};
   for (const t of todo) { try { const md = await T.ModelRegistry.get_file_metadata(id, t.f); t.size = md && md.exists !== false && md.size > 1 ? md.size : 0; } catch { t.size = 0; } }
   const total = todo.reduce((n, t) => n + t.size, 0); let done = 0;
-  const stream = await canStreamToCache();
+  const useFiles = await fileStoreReady();
   for (const t of todo) {
     if (onFile) onFile(t.f);
     let lastErr = null;
-    for (let attempt = 0; attempt < 3; attempt++) {
-      let got = 0;
+    for (let attempt = 0; attempt < 4; attempt++) {
       try {
-        const res = await fetch(t.url, {cache:"no-store"});
-        if (!res.ok) throw new Error(`Download failed (${res.status}) for ${t.f}`);
-        const type = res.headers.get("content-type") || "application/octet-stream";
-        if (stream && t.size) {
-          const counter = new TransformStream({transform(chunk, ctl){ got += chunk.byteLength; if (total) onProgress(done + got, total); ctl.enqueue(chunk); }});
-          await cache.put(t.url, new Response(res.body.pipeThrough(counter), {headers:{"content-type":type, "content-length":String(t.size)}}));
-          if (got !== t.size) {
-            await cache.delete(t.url);
-            if (got > t.size) { t.size = 0; continue; } // size info was wrong: save it whole on the next try
-            throw new Error(`Download of ${t.f} stopped early`);
-          }
+        if (useFiles && t.size >= BIG) {
+          await bigDownload(t, n => { if (total) onProgress(Math.min(done + n, total), total); });
         } else {
-          const buf = await res.arrayBuffer(); got = buf.byteLength;
-          await cache.put(t.url, new Response(buf, {headers:{"content-type":type, "content-length":String(got)}}));
+          const res = await fetch(t.url, {cache:"no-store"});
+          if (!res.ok) throw new Error(`Download failed (${res.status}) for ${t.f}`);
+          const buf = await res.arrayBuffer();
+          await cache.put(t.url, new Response(buf, {headers:{"content-type":res.headers.get("content-type") || "application/octet-stream", "content-length":String(buf.byteLength)}}));
         }
-        done += t.size || got; if (total) onProgress(Math.min(done, total), total);
+        done += t.size; if (total) onProgress(Math.min(done, total), total);
         lastErr = null; break;
       } catch (e) { lastErr = e; if (navigator.onLine === false) break; await new Promise(r => setTimeout(r, 1500 * (attempt + 1))); }
     }
@@ -913,13 +960,15 @@ function checkLastLoad(){
   const all = lsGet(CRASHKEY) || {}; const prev = all[l.kind + "|" + l.k];
   all[l.kind + "|" + l.k] = l.device === "webgpu" ? "webgpu" : "wasm"; lsSet(CRASHKEY, all);
   const name = l.kind === "asr" ? "Whisper " + ((MODELS.find(m => m.k === l.k) || {}).label || "").split(" ·")[0] : ((LLMS.find(m => m.k === l.k) || {}).label || "the built-in AI").split(" ·")[0];
-  const msg = l.device === "webgpu" && prev !== "wasm"
+  const msg = l.kind === "llm"
+    ? `${name} didn't finish loading last time, most likely because the phone ran short on memory. Try Qwen2.5 0.5B in Settings, the lightest model, or use Claude instead from the Notes tab.`
+    : l.device === "webgpu" && prev !== "wasm"
     ? `${name} didn't finish loading last time, most likely because the phone ran short on memory. It will run on the processor from now on, which uses less.`
     : `${name} didn't finish loading last time, most likely because the phone ran short on memory. Close other apps and try again, or pick a smaller model in Settings.`;
   S.loadNotice = {kind:l.kind, msg};
 }
 async function llmTarget(){
-  const m = llmInfo(); const gpu = crashedOn("llm", m.k) ? null : await gpuInfo(); const device = gpu ? "webgpu" : "wasm";
+  const m = llmInfo(); const gpu = await gpuInfo(); const device = gpu ? "webgpu" : "wasm";
   const dtype = device === "webgpu" ? (m.gpuDtype || (gpu && gpu.f16 ? "q4f16" : "q4")) : "q4";
   return {m, gpu, device, dtype, key:m.k + "|" + device};
 }
@@ -2503,7 +2552,7 @@ $("wModel").onchange = e => { S.set.wModel = e.target.value; saveSet(); $("wDlMe
 $("wEngine").onchange = e => { S.set.wEngine = e.target.value; saveSet(); const c = lsGet(CRASHKEY) || {}; for (const k of Object.keys(c)) if (k.startsWith("asr|")) delete c[k]; lsSet(CRASHKEY, c); };
 $("lang").onchange = e => { S.set.lang = e.target.value; saveSet(); };
 $("wClear").onclick = () => arm($("wClear"), "Tap again to remove", async () => {
-  try { await freeASR(); await freeLLM(); const keys = await caches.keys(); for (const k of keys) if (/transformers/i.test(k)) await caches.delete(k); toast("Downloaded models removed"); } catch { toast("Couldn't remove the models"); }
+  try { await freeASR(); await freeLLM(); const keys = await caches.keys(); for (const k of keys) if (/transformers/i.test(k)) await caches.delete(k); await clearModelFiles(); toast("Downloaded models removed"); } catch { toast("Couldn't remove the models"); }
   renderStorage();
 });
 $("bExport").onclick = () => saveFile(`session-scribe-backup-${todayISO()}.json`, JSON.stringify({type:"session-scribe-backup", version:3, exportedAt:Date.now(), settings:S.set, worlds:[...S.worlds.values()], campaigns:[...S.campaigns.values()], arcs:[...S.arcs.values()], sessions:[...S.sessions.values()]}));

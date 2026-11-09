@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Session Scribe</title>
 <meta name="description" content="Free session notes for tabletop campaigns.">
-<meta name="theme-color" content="#11161a">
+<meta name="theme-color" content="#11161a" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#eef2f1" media="(prefers-color-scheme: light)">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -13,8 +14,16 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="icon-192.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral+SC:wght@600&family=Spectral:ital@0;1&family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Fonts ship with the app (SIL Open Font License), so nothing loads from outside. */
+@font-face{font-family:"Spectral SC";font-weight:600;font-style:normal;font-display:swap;src:url(lib/fonts/spectral-sc-latin-600-normal.woff2) format("woff2")}
+@font-face{font-family:"Spectral";font-weight:400;font-style:normal;font-display:swap;src:url(lib/fonts/spectral-latin-400-normal.woff2) format("woff2")}
+@font-face{font-family:"Spectral";font-weight:400;font-style:italic;font-display:swap;src:url(lib/fonts/spectral-latin-400-italic.woff2) format("woff2")}
+@font-face{font-family:"Atkinson Hyperlegible";font-weight:400;font-style:normal;font-display:swap;src:url(lib/fonts/atkinson-hyperlegible-latin-400-normal.woff2) format("woff2")}
+@font-face{font-family:"Atkinson Hyperlegible";font-weight:700;font-style:normal;font-display:swap;src:url(lib/fonts/atkinson-hyperlegible-latin-700-normal.woff2) format("woff2")}
+@font-face{font-family:"JetBrains Mono";font-weight:400;font-style:normal;font-display:swap;src:url(lib/fonts/jetbrains-mono-latin-400-normal.woff2) format("woff2")}
+@font-face{font-family:"JetBrains Mono";font-weight:500;font-style:normal;font-display:swap;src:url(lib/fonts/jetbrains-mono-latin-500-normal.woff2) format("woff2")}
+</style>
 <style>
 /* Phone-first: sticky header (world › campaign › arc + session + clock), one scrolling view, fixed bottom tab bar. Dark-first for night play. */
 :root{
@@ -28,6 +37,13 @@
   --f-body:"Atkinson Hyperlegible", -apple-system, system-ui, "Segoe UI", sans-serif;
   --f-mono:"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
   --gut-l:max(16px, env(safe-area-inset-left, 0px)); --gut-r:max(16px, env(safe-area-inset-right, 0px));
+  /* Safe areas go through variables so the app can correct them at runtime (see fixViewport): on some
+     iOS 26 releases a home-screen app's page stops short of the screen bottom while still reporting
+     the home-indicator inset, which reserves that space twice. */
+  --safe-top:env(safe-area-inset-top, 0px); --safe-bottom:env(safe-area-inset-bottom, 0px);
+  --hdr:calc(var(--safe-top) + 64px);
+  --glass:rgba(24,32,38,.72); --glass-hi:rgba(255,255,255,.07); --glass-line:rgba(255,255,255,.10); --glass-shadow:0 10px 30px rgba(0,0,0,.45), 0 1px 0 rgba(255,255,255,.06) inset;
+  --hdr-glass:rgba(17,22,26,.78);
   color-scheme:dark;
 }
 @media (prefers-color-scheme: light){ :root{
@@ -36,16 +52,25 @@
   --ember:#b0581c; --danger:#b9372d; --live:#c4382c;
   --t-plot:#b0581c; --t-npc:#137a6f; --t-place:#8c6a1f; --t-loot:#9a7d0f; --t-quest:#2f6fae;
   --t-lore:#7350ad; --t-combat:#b9372d; --t-quote:#4d5a61; --t-ruling:#6c7a82; --t-hook:#1f8a58;
+  --glass:rgba(255,255,255,.72); --glass-hi:rgba(255,255,255,.6); --glass-line:rgba(20,40,40,.10); --glass-shadow:0 10px 30px rgba(20,40,40,.16), 0 1px 0 rgba(255,255,255,.8) inset;
+  --hdr-glass:rgba(238,242,241,.80);
   color-scheme:light; } }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%;background:var(--bg)}
 html,body{height:100%;margin:0}
-body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:16px;line-height:1.5;display:flex;flex-direction:column;overscroll-behavior-y:none}
+body{position:relative;background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:16px;line-height:1.5;display:flex;flex-direction:column;overscroll-behavior:none;overflow:hidden}
 button,input,textarea,select{font:inherit;color:inherit}
-input,textarea,select{font-size:16px}
+input,textarea,select{font-size:16px;caret-color:var(--accent)}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 [hidden]{display:none!important}
+/* touch: no double-tap zoom or accidental text selection on controls, and a visible press */
+button,.btn,.tag,summary,label.btn,nav.tabs button,.switch{touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.btn,.tag,.recbtn,.micbtn{transition:transform .08s ease, opacity .08s ease}
+.btn:active,.tag:active{transform:scale(.97);opacity:.85}
+.recbtn:active{transform:scale(.95)}
 
-header.top{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line);padding-top:calc(env(safe-area-inset-top, 0px) + 10px);padding-bottom:10px;padding-left:var(--gut-l);padding-right:var(--gut-r);display:flex;align-items:center;gap:12px}
+/* glass header: the page scrolls underneath it */
+header.top{position:absolute;top:0;left:0;right:0;z-index:5;background:var(--hdr-glass);-webkit-backdrop-filter:blur(22px) saturate(170%);backdrop-filter:blur(22px) saturate(170%);border-bottom:1px solid var(--glass-line);padding-top:calc(var(--safe-top) + 8px);padding-bottom:10px;padding-left:var(--gut-l);padding-right:var(--gut-r);display:flex;align-items:center;gap:12px}
 .top .who{flex:1;min-width:0;background:none;border:0;text-align:left;padding:0;cursor:pointer}
 .top .camp{display:block;font-family:var(--f-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .top .sess{display:block;font-family:var(--f-display);font-weight:600;font-size:20px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -55,14 +80,20 @@ header.top{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1p
 .livedot{width:10px;height:10px;border-radius:50%;background:var(--live);animation:pulse 1.6s infinite}
 @keyframes pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--live) 60%,transparent)}70%{box-shadow:0 0 0 9px transparent}100%{box-shadow:0 0 0 0 transparent}}
 
-main{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-top:16px;padding-bottom:calc(env(safe-area-inset-bottom, 0px) + 96px);padding-left:var(--gut-l);padding-right:var(--gut-r)}
+/* main is the scroller (not the document), which also sidesteps iOS 26's keyboard-gap bug */
+main{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain;scroll-padding-top:calc(var(--hdr) + 12px);padding-top:calc(var(--hdr) + 16px);padding-bottom:calc(var(--safe-bottom) + 110px);padding-left:var(--gut-l);padding-right:var(--gut-r)}
 .view{display:flex;flex-direction:column;gap:14px;max-width:760px;margin:0 auto;width:100%}
 
-nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--surface);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(5,1fr);padding-bottom:env(safe-area-inset-bottom, 0px);padding-left:env(safe-area-inset-left, 0px);padding-right:env(safe-area-inset-right, 0px)}
-nav.tabs button{background:none;border:0;padding:9px 2px 8px;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;font-weight:700;color:var(--muted);cursor:pointer;position:relative}
+/* floating glass tab bar, sitting just above the home indicator like iOS 26's own */
+nav.tabs{position:fixed;z-index:6;left:50%;transform:translateX(-50%);bottom:max(10px, calc(var(--safe-bottom) - 8px));width:min(520px, calc(100% - 24px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)));display:grid;grid-template-columns:repeat(5,1fr);gap:2px;padding:6px;border-radius:32px;background:var(--glass);-webkit-backdrop-filter:blur(24px) saturate(180%);backdrop-filter:blur(24px) saturate(180%);border:1px solid var(--glass-line);box-shadow:var(--glass-shadow);transition:transform .22s ease, opacity .22s ease}
+nav.tabs button{background:none;border:0;border-radius:26px;padding:7px 2px 6px;min-height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:11px;font-weight:700;letter-spacing:.01em;color:var(--muted);cursor:pointer;position:relative;transition:background .15s ease, color .15s ease, transform .08s ease}
+nav.tabs button:active{transform:scale(.94)}
 nav.tabs button svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-nav.tabs button[aria-selected="true"]{color:var(--accent)}
-nav.tabs .badge{position:absolute;top:6px;right:calc(50% - 20px);width:8px;height:8px;border-radius:50%;background:var(--live)}
+nav.tabs button[aria-selected="true"]{color:var(--accent);background:color-mix(in srgb, var(--accent) 15%, var(--glass-hi))}
+nav.tabs .badge{position:absolute;top:7px;right:calc(50% - 19px);width:8px;height:8px;border-radius:50%;background:var(--live);box-shadow:0 0 0 2px var(--glass)}
+/* while typing, the tab bar slides away so the keyboard has room */
+body.typing nav.tabs{transform:translate(-50%, 140%);opacity:0;pointer-events:none}
+@media (prefers-reduced-transparency: reduce){ header.top{background:var(--bg);-webkit-backdrop-filter:none;backdrop-filter:none} nav.tabs{background:var(--surface);-webkit-backdrop-filter:none;backdrop-filter:none} }
 
 h2.title{font-family:var(--f-display);font-weight:600;font-size:26px;line-height:1.15;margin:0;text-wrap:balance;overflow-wrap:anywhere}
 .lbl{font-family:var(--f-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
@@ -97,7 +128,7 @@ h2.title{font-family:var(--f-display);font-weight:600;font-size:26px;line-height
 
 /* table log */
 .tags{display:flex;flex-wrap:wrap;gap:7px}
-.tag{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:7px 12px;font-size:14px;font-weight:700;cursor:pointer;min-height:36px}
+.tag{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 12px;font-size:14px;font-weight:700;cursor:pointer;min-height:38px}
 .tag .dot{width:9px;height:9px;border-radius:50%;background:var(--c)}
 .tag[aria-pressed="true"]{border-color:var(--c);background:color-mix(in srgb, var(--c) 18%, var(--surface))}
 .entry{display:flex;gap:8px}
@@ -181,9 +212,39 @@ details.more[open] summary::before{content:"▾ "}
 .wcard .ws{font-size:13px;color:var(--muted)}
 .wcard.cur{border-color:var(--accent)}
 .story{font-family:var(--f-read);font-size:16px;line-height:1.6;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;white-space:pre-wrap}
-.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom, 0px) + 78px);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:700;font-size:14px;z-index:9;max-width:calc(100% - 32px);text-align:center}
-@media (min-width: 760px){ nav.tabs{max-width:760px;margin:0 auto;border-left:1px solid var(--line);border-right:1px solid var(--line);border-radius:14px 14px 0 0} }
+
+/* search */
+.searchbar{position:relative}
+.searchbar svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:20px;height:20px;stroke:var(--muted);fill:none;stroke-width:2;stroke-linecap:round;pointer-events:none}
+.searchbar .inp{padding-left:40px;border-radius:999px}
+.results{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.results button{width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--line);padding:11px 2px;display:flex;flex-direction:column;gap:3px;cursor:pointer;min-width:0}
+.results .rh{display:flex;gap:8px;align-items:baseline;min-width:0}
+.results .rt{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}
+.results .rp{font-family:var(--f-mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.results .rs{font-size:14px;color:var(--muted);overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+mark{background:color-mix(in srgb, var(--accent) 32%, transparent);color:var(--fg);border-radius:3px;padding:0 1px}
+
+/* last time · DM-only */
+.lastcard{border-color:color-mix(in srgb, var(--accent) 45%, var(--line))}
+.lastcard summary{font-weight:700;cursor:pointer;list-style:none;display:flex;gap:8px;align-items:baseline}
+.lastcard summary::-webkit-details-marker{display:none}
+.lastcard summary::before{content:"▸";color:var(--accent)}
+.lastcard[open] summary::before{content:"▾"}
+.lastcard .inner{display:flex;flex-direction:column;gap:14px;margin-top:12px}
+.prose.big{font-size:22px;line-height:1.55}
+.card.warn{border-color:var(--ember);background:color-mix(in srgb, var(--ember) 9%, var(--surface))}
+.card.warn > strong{color:var(--ember)}
+.secret-toggle{border:1px dashed var(--line);border-radius:12px;padding:10px 12px}
+.journal h3{font-family:var(--f-display);font-weight:600;font-size:19px;margin:18px 0 2px;font-variant-numeric:lining-nums}
+.journal .arc{font-family:var(--f-mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-top:22px;padding-bottom:4px;border-bottom:1px solid var(--line)}
+.journal .jd{font-family:var(--f-mono);font-size:12px;color:var(--muted)}
+.journal .items{margin-top:6px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(max(10px, calc(var(--safe-bottom) - 8px)) + 80px);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:700;font-size:14px;z-index:9;max-width:calc(100% - 32px);text-align:center}
 @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+/* the display face's default numerals are old-style ("1" reads like "I"); use regular ones */
+/* Safari ignores font-variant-numeric on this face, so switch the lining-figures feature on directly */
+.top .sess,h2.title,.sec h3,.lsec .lhead h3,.wcard .wn,.journal h3,.lastcard summary{font-variant-numeric:lining-nums;font-feature-settings:"lnum" 1}
 </style>
 </head>
 <body>
@@ -211,6 +272,7 @@ details.more[open] summary::before{content:"▾ "}
 
   <!-- TABLE -->
   <section class="view" id="v-table" hidden>
+    <div id="lastTime"></div>
     <details class="more" id="sDetails">
       <summary>Session details</summary>
       <div class="card" style="margin-top:8px">
@@ -289,7 +351,13 @@ details.more[open] summary::before{content:"▾ "}
   </section>
 
   <!-- LIBRARY (rendered by script) -->
-  <section class="view" id="v-library" hidden></section>
+  <section class="view" id="v-library" hidden>
+    <div class="searchbar" role="search">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input class="inp" id="libSearch" type="search" placeholder="Search NPCs, lore, notes…" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" aria-label="Search everything">
+    </div>
+    <div class="view" id="libBody"></div>
+  </section>
 
   <!-- SETTINGS -->
   <section class="view" id="v-settings" hidden>
@@ -301,12 +369,18 @@ details.more[open] summary::before{content:"▾ "}
       <label class="field"><span class="lbl">Run on</span><select class="inp" id="wEngine"><option value="auto">Automatic · graphics chip when available</option><option value="gpu">Graphics chip only</option><option value="cpu">Processor only · slower, most compatible</option></select></label>
       <div class="row"><button class="btn" id="wDownload" type="button">Download model now</button><span class="meta grow msg" id="wDlMeta"></span></div>
       <div class="bar" id="wDlBar" hidden><span id="wDlFill"></span></div>
-      <span class="meta" id="storeMeta"></span>
-      <div class="row"><button class="btn sm danger" id="wClear" type="button">Remove downloaded models</button></div>
     </div>
     <div class="card">
-      <strong>How notes work</strong>
-      <p class="help">Notes are written by Claude through copy and paste, so nobody needs an API key or a paid plan. On the Notes tab, tap <b>Copy for Claude</b>, paste into the Claude app (a free account works), then paste Claude's reply back. The app files the recap, NPCs, characters, lore and arc story for you.</p>
+      <strong>Built-in AI · for notes and sorting lore</strong>
+      <p class="help">A small open-source language model that runs on this phone, so notes and lore sorting work with no account and no internet once it's downloaded. Bigger models write better notes but download more and run slower. You can always use Claude instead from the Notes tab or a lore document, which gives the best results.</p>
+      <label class="field"><span class="lbl">Model</span><select class="inp" id="aiModel"></select></label>
+      <div class="row"><button class="btn" id="aiDownload" type="button">Download model now</button><span class="meta grow msg" id="aiDlMeta"></span></div>
+      <div class="bar" id="aiDlBar" hidden><span id="aiDlFill"></span></div>
+    </div>
+    <div class="card">
+      <strong>Storage</strong>
+      <span class="help" id="storeMeta"></span>
+      <div class="row"><button class="btn sm danger" id="wClear" type="button">Remove downloaded models</button></div>
     </div>
     <div class="card">
       <strong>Backup</strong>
@@ -340,7 +414,14 @@ const TAGS = [
 const TAGMAP = Object.fromEntries(TAGS.map(t => [t.k, t]));
 
 /* Whisper models (ONNX builds that run in the browser) */
-const TJS_URL = "https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.3.1";
+const TJS_CDN = "https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.3.1"; // only used if the bundled copy is missing
+/* Built-in language models (open source, run on this phone through the same engine as Whisper) */
+const LLMS = [
+  {k:"qwen05",  id:"onnx-community/Qwen2.5-0.5B-Instruct", label:"Qwen2.5 0.5B · fastest, simplest notes", size:"about 480 MB"},
+  {k:"llama1b", id:"onnx-community/Llama-3.2-1B-Instruct", label:"Llama 3.2 1B · recommended",            size:"about 1.1 GB"},
+  {k:"gemma1b", id:"onnx-community/gemma-3-1b-it-ONNX",    label:"Gemma 3 1B · good writer",              size:"about 1 GB", gpuDtype:"q4"},
+  {k:"qwen15",  id:"onnx-community/Qwen2.5-1.5B-Instruct", label:"Qwen2.5 1.5B · best notes, heaviest",   size:"about 1.3 GB"},
+];
 const MODELS = [
   {k:"tiny",   id:"onnx-community/whisper-tiny.en",        label:"Tiny · fastest, least accurate",        size:"about 75 MB"},
   {k:"base",   id:"onnx-community/whisper-base.en",        label:"Base · fast",                            size:"about 140 MB"},
@@ -399,7 +480,7 @@ const S = {
   sessId: null, view: "table", tag: "plot",
   lib: {w:null, c:null, a:null, edit:null, q:""},
   drafts: {}, reviews: {},
-  set: {wModel:"small", wEngine:"auto", lang:"en-US"},
+  set: {wModel:"small", wEngine:"auto", lang:"en-US", aiModel:"llama1b"},
 };
 const sess = () => S.sessions.get(S.sessId) || null;
 const ctxOf = s => { const c = s && S.campaigns.get(s.campaignId); const w = c && S.worlds.get(c.worldId); const a = s && s.arcId ? S.arcs.get(s.arcId) : null; return {c, w, a}; };
@@ -410,12 +491,12 @@ const uid = p => p + Date.now().toString(36) + Math.random().toString(36).slice(
 
 const saveT = {};
 function saveSess(s, now){
-  if (!s) return; s.updatedAt = Date.now();
+  if (!s) return; s.updatedAt = Date.now(); bump();
   clearTimeout(saveT[s.id]);
   const go = () => { delete saveT[s.id]; store.put("sessions", s).catch(() => toast("Couldn't save to this phone")); };
   if (now) go(); else saveT[s.id] = setTimeout(go, 500);
 }
-const put = (name, obj) => { obj.updatedAt = Date.now(); return store.put(name, obj).catch(() => toast("Couldn't save to this phone")); };
+const put = (name, obj) => { obj.updatedAt = Date.now(); bump(); return store.put(name, obj).catch(() => toast("Couldn't save to this phone")); };
 const saveSet = () => store.put("kv", S.set, "settings").catch(() => {});
 const saveActive = () => store.put("kv", {sessId:S.sessId}, "active").catch(() => {});
 
@@ -451,9 +532,10 @@ function cleanTranscript(raw){
   }
   return out.join("\n").replace(/\n{3,}/g, "\n\n").trim();
 }
-function saveFile(name, text){
-  const blob = new Blob([text], {type:"application/json"});
-  try { const file = new File([blob], name, {type:"application/json"}); if (navigator.canShare && navigator.canShare({files:[file]})) { navigator.share({files:[file], title:name}).catch(() => {}); return; } } catch {}
+function saveFile(name, text, mime){
+  mime = mime || "application/json";
+  const blob = new Blob([text], {type:mime});
+  try { const file = new File([blob], name, {type:mime}); if (navigator.canShare && navigator.canShare({files:[file]})) { navigator.share({files:[file], title:name}).catch(() => {}); return; } } catch {}
   const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.append(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
 }
 const scripts = {};
@@ -461,7 +543,14 @@ function loadScript(src){ return scripts[src] || (scripts[src] = new Promise((re
 async function fileText(f){
   const ext = (f.name.split(".").pop() || "").toLowerCase();
   if (["txt","md","markdown","text","csv","rtf"].includes(ext) || /^text\//.test(f.type)) return (await f.text()).replace(/\r/g, "");
-  if (ext === "docx") { await loadScript("lib/mammoth.browser.min.js"); const r = await window.mammoth.extractRawText({arrayBuffer: await f.arrayBuffer()}); return r.value.replace(/\n{3,}/g, "\n\n").trim(); }
+  if (ext === "docx") {
+    // markdown keeps the document's headings, which the sorters use to split it into entries
+    await loadScript("lib/mammoth.browser.min.js"); const ab = await f.arrayBuffer();
+    let t;
+    try { t = (await window.mammoth.convertToMarkdown({arrayBuffer: ab})).value.replace(/\\([\\`*_{}\[\]()#+\-.!])/g, "$1").replace(/__([^_]+)__/g, "$1").replace(/\*\*([^*]+)\*\*/g, "$1").replace(/!\[[^\]]*\]\([^)]*\)/g, ""); }
+    catch { t = (await window.mammoth.extractRawText({arrayBuffer: ab})).value; }
+    return t.replace(/<a id="[^"]*"><\/a>/g, "").replace(/\n{3,}/g, "\n\n").trim();
+  }
   if (ext === "pdf") {
     await loadScript("lib/pdf.min.js"); window.pdfjsLib.GlobalWorkerOptions.workerSrc = "lib/pdf.worker.min.js";
     const pdf = await window.pdfjsLib.getDocument({data: new Uint8Array(await f.arrayBuffer())}).promise; const out = [];
@@ -527,6 +616,7 @@ function renderTable(){
   $("clockBtn").textContent = s.startedAt ? "Reset clock" : "Start clock";
   $("clockBtn").classList.toggle("primary", !s.startedAt);
   $("clockMeta").textContent = s.startedAt ? "Started " + new Date(s.startedAt).toLocaleTimeString([], {hour:"numeric", minute:"2-digit"}) : "Starts by itself when you record";
+  renderLastTime(s);
   const ul = $("log"); ul.replaceChildren();
   if (!s.log.length) { const d = el("div","empty"); d.append(el("b", null, "Nothing logged yet. "), document.createTextNode("Tap a tag, type a line, hit Log. These notes outrank the microphone, so use them for spellings and anything said too quietly to hear.")); ul.append(d); return; }
   for (const e of [...s.log].reverse()) {
@@ -538,6 +628,41 @@ function renderTable(){
     li.append(el("span","ts", stamp(s, e.at)), body, x); ul.append(li);
   }
 }
+/* start of session: what happened last time, ready to read aloud */
+const chrono = cid => [...S.sessions.values()].filter(s => s.campaignId === cid).sort((a,b) => (Number(a.number)||0) - (Number(b.number)||0) || a.createdAt - b.createdAt);
+function previousWithNotes(s){ const list = chrono(s.campaignId); const i = list.findIndex(x => x.id === s.id); for (let k = i - 1; k >= 0; k--) if (list[k].notes) return list[k]; return null; }
+const lastOpen = {}; let readBig = false;
+function renderLastTime(s){
+  const host = $("lastTime"); host.replaceChildren();
+  const prev = previousWithNotes(s); const {a} = ctxOf(s);
+  if (!prev && !(a && a.storySoFar)) return;
+  const fresh = !s.log.length && !str(s.transcript).trim() && !s.notes;
+  const d = el("details","card lastcard"); d.open = lastOpen[s.id] ?? fresh;
+  d.ontoggle = () => { lastOpen[s.id] = d.open; };
+  const sum = el("summary"); sum.append(el("span", null, prev ? `Last time · ${titleLine(prev)}` : `Story so far · ${a.name}`)); d.append(sum);
+  const inner = el("div","inner");
+  if (prev && prev.notes.playerRecap) {
+    const sec = el("section","view"); sec.style.gap = "8px";
+    sec.append(el("span","lbl","Read this to the table"));
+    const lb = leakBox(prev, () => renderLastTime(s)); if (lb) sec.append(lb);
+    const p = prose(prev.notes.playerRecap); p.classList.toggle("big", readBig); sec.append(p);
+    const r = el("div","row");
+    const big = btn(readBig ? "Smaller text" : "Bigger text", "sm", () => { readBig = !readBig; renderLastTime(s); });
+    const sh = btn("Share recap", "sm ghost", () => sharePlayerRecap(prev, sh));
+    r.append(big, sh); sec.append(r); inner.append(sec);
+  }
+  if (a && a.storySoFar) { const sec = el("section","view"); sec.style.gap = "6px"; sec.append(el("span","lbl", `${a.name} · story so far`), el("div","story", a.storySoFar)); inner.append(sec); }
+  if (prev) {
+    const open = (prev.notes.threads || []).filter(t => t.status !== "resolved");
+    if (open.length) { const sec = el("section","view"); sec.style.gap = "6px"; sec.append(el("span","lbl","Open threads"), listEl(open, (li, t) => li.append(el("span", null, t.text)))); inner.append(sec); }
+    if ((prev.notes.hooks || []).length) { const sec = el("section","view"); sec.style.gap = "6px"; sec.append(el("span","lbl","Your prep notes from last time"), listEl(prev.notes.hooks, (li, t) => li.append(el("span", null, t)))); inner.append(sec); }
+    const met = (prev.notes.npcs || []).map(n => n.name);
+    if (met.length) inner.append(el("p","help", "NPCs last time: " + met.join(", ")));
+    inner.append(el("div","row")); inner.lastChild.append(btn("Open last session's notes", "sm ghost", () => { openSession(prev.id); S.view = "notes"; render(); }));
+  }
+  d.append(inner); host.append(d);
+}
+
 // "Name — who they are" on an NPC entry files them on the campaign roster
 async function npcFromLog(s, text){
   const {c} = ctxOf(s); if (!c) return;
@@ -686,9 +811,62 @@ $("micBtn").onclick = () => { if (!SR) return; L.on ? stopCaptions() : startCapt
 
 /* ---------- Whisper on this phone ---------- */
 const W = {asr:null, key:null, loading:null, device:null};
+const AI = {llm:null, key:null, loading:null, device:null};
 const J = {busy:false, stop:false};
 async function gpuInfo(){ try { if (!navigator.gpu) return null; const a = await navigator.gpu.requestAdapter(); return a ? {f16: a.features.has("shader-f16")} : null; } catch { return null; } }
 function modelInfo(){ return MODELS.find(m => m.k === S.set.wModel) || MODELS[2]; }
+function llmInfo(){ return LLMS.find(m => m.k === S.set.aiModel) || LLMS[1]; }
+// The AI engine ships inside the app (lib/). Only model files are downloaded, once, from Hugging Face.
+let ENGINE = null;
+async function loadEngine(){
+  if (ENGINE) return ENGINE;
+  let T;
+  try { T = await import(new URL("lib/transformers.min.js", location.href).href); }
+  catch { try { T = await import(TJS_CDN); } catch { throw {kind:"offline"}; } }
+  T.env.allowLocalModels = false;
+  // The runtime ships gzipped (hosts cap single files at 25 MB); unpack it on the phone.
+  // If anything goes wrong, the engine falls back to fetching the same file from jsDelivr.
+  try {
+    const plain = /^((?!chrome|android|crios|fxios).)*safari/i.test(navigator.userAgent) && !navigator.gpu;
+    const base = new URL("lib/ort/", location.href).href, sfx = plain ? "" : ".asyncify";
+    if ("DecompressionStream" in window) {
+      const r = await fetch(base + `ort-wasm-simd-threaded${sfx}.wasm.gz`);
+      if (r.ok) {
+        const blob = await new Response(r.body.pipeThrough(new DecompressionStream("gzip"))).blob();
+        const wasm = URL.createObjectURL(new Blob([blob], {type:"application/wasm"}));
+        T.env.backends.onnx.wasm.wasmPaths = {mjs: base + `ort-wasm-simd-threaded${sfx}.mjs`, wasm};
+      }
+    }
+  } catch {}
+  return ENGINE = T;
+}
+function progressTracker(onProgress){
+  const files = {};
+  return p => {
+    if (p && p.file && typeof p.total === "number" && p.total > 0) files[p.file] = {loaded:p.loaded || 0, total:p.total};
+    if (p && p.status === "done" && p.file && files[p.file]) files[p.file].loaded = files[p.file].total;
+    const vals = Object.values(files); const total = vals.reduce((t, f) => t + f.total, 0), loaded = vals.reduce((t, f) => t + f.loaded, 0);
+    if (onProgress && total) onProgress(loaded, total);
+  };
+}
+// Only one model fits in memory comfortably on a phone, so loading one frees the other.
+async function freeLLM(){ if (AI.llm) { try { await AI.llm.dispose(); } catch {} AI.llm = null; AI.key = null; } }
+async function freeASR(){ if (W.asr) { try { await W.asr.dispose(); } catch {} W.asr = null; W.key = null; } }
+async function getLLM(onProgress){
+  const m = llmInfo(); const gpu = await gpuInfo(); const device = gpu ? "webgpu" : "wasm";
+  const key = m.k + "|" + device;
+  if (AI.llm && AI.key === key) return AI.llm;
+  if (AI.loading) return AI.loading;
+  await freeASR(); await freeLLM();
+  const progress = progressTracker(onProgress);
+  AI.loading = (async () => {
+    const T = await loadEngine();
+    const dtype = device === "webgpu" ? (m.gpuDtype || (gpu && gpu.f16 ? "q4f16" : "q4")) : "q4";
+    AI.llm = await T.pipeline("text-generation", m.id, {device, dtype, progress_callback: progress});
+    AI.key = key; AI.device = device; return AI.llm;
+  })();
+  try { return await AI.loading; } finally { AI.loading = null; }
+}
 async function getASR(onProgress){
   const m = modelInfo(), pref = S.set.wEngine || "auto";
   const gpu = pref === "cpu" ? null : await gpuInfo();
@@ -697,19 +875,11 @@ async function getASR(onProgress){
   const key = m.k + "|" + device;
   if (W.asr && W.key === key) return W.asr;
   if (W.loading && W.loadingKey === key) return W.loading;
-  if (W.asr) { try { await W.asr.dispose(); } catch {} W.asr = null; W.key = null; }
-  const files = {};
-  const progress = p => {
-    if (p && p.file && typeof p.total === "number" && p.total > 0) { files[p.file] = {loaded:p.loaded || 0, total:p.total}; }
-    if (p && p.status === "done" && p.file && files[p.file]) files[p.file].loaded = files[p.file].total;
-    const vals = Object.values(files); const total = vals.reduce((t, f) => t + f.total, 0), loaded = vals.reduce((t, f) => t + f.loaded, 0);
-    if (onProgress && total) onProgress(loaded, total);
-  };
+  await freeLLM(); await freeASR();
+  const progress = progressTracker(onProgress);
   W.loadingKey = key;
   W.loading = (async () => {
-    let T;
-    try { T = await import(TJS_URL); } catch { throw {kind:"offline"}; }
-    T.env.allowLocalModels = false;
+    const T = await loadEngine();
     const load = (dev) => T.pipeline("automatic-speech-recognition", m.id, {
       device: dev, progress_callback: progress,
       dtype: dev === "webgpu" ? {encoder_model: m.big ? "q4" : (gpu && gpu.f16 ? "fp16" : "fp32"), decoder_model_merged: "q4"} : {encoder_model: "q8", decoder_model_merged: "q8"},
@@ -958,11 +1128,21 @@ function contextFor(s){
   P.push(`CAMPAIGN: ${c ? c.name : "(unknown)"} (tabletop RPG, likely D&D 5e)`);
   P.push("PLAYER CHARACTERS:\n" + (c && c.pcs.length ? c.pcs.map(p => `- ${p.name}${p.player ? ` (played by ${p.player})` : ""}${p.desc ? ` — ${p.desc}` : ""}${p.notes ? `: ${clip(p.notes, 300)}` : ""}`).join("\n") : "(none listed)"));
   P.push("KNOWN NPCs (met before this session):\n" + (c && c.npcs.length ? [...c.npcs].slice(0, 200).map(n => `- ${n.name}${n.role ? ` — ${n.role}` : ""}${n.status ? ` [${n.status}]` : ""}${n.notes ? `: ${clip(n.notes, 160)}` : ""}`).join("\n") : "(none yet)"));
-  if (a) P.push(`CURRENT ARC: ${a.name}${a.status ? ` (${a.status})` : ""}${a.summary ? `\nDM's arc notes: ${clip(a.summary, 3000)}` : ""}${a.storySoFar ? `\nStory so far: ${clip(a.storySoFar, 3000)}` : ""}`);
+  if (a) P.push(`CURRENT ARC: ${a.name}${a.status ? ` (${a.status})` : ""}${a.storySoFar ? `\nStory so far: ${clip(a.storySoFar, 3000)}` : ""}`);
   const prev = c ? sessionsOf(c.id).filter(o => o.id !== s.id && o.notes && o.notes.recap).slice(0, 3) : [];
   if (prev.length) P.push("RECENT EARLIER SESSIONS:\n" + prev.map(o => `- ${titleLine(o)}: ${clip(o.notes.recap, 700)}`).join("\n"));
-  const bg = [w && w.docs.length ? `### WORLD LORE — ${w.name}\n${docsBlock(w.docs, 20000)}` : "", c && c.docs.length ? `### CAMPAIGN LORE — ${c.name}\n${docsBlock(c.docs, 20000)}` : "", a && a.docs && a.docs.length ? `### ARC LORE — ${a.name}\n${docsBlock(a.docs, 8000)}` : ""].filter(Boolean).join("\n\n");
+  const pub = d => !d.secret, sec = d => !!d.secret;
+  const wd = w ? w.docs : [], cd = c ? c.docs : [], ad = a && a.docs ? a.docs : [];
+  const bg = [wd.some(pub) ? `### WORLD LORE — ${w.name}\n${docsBlock(wd.filter(pub), 20000)}` : "", cd.some(pub) ? `### CAMPAIGN LORE — ${c.name}\n${docsBlock(cd.filter(pub), 20000)}` : "", ad.some(pub) ? `### ARC LORE — ${a.name}\n${docsBlock(ad.filter(pub), 8000)}` : ""].filter(Boolean).join("\n\n");
   if (bg) P.push(`BACKGROUND (the DM's private reference, not a record of this session):\n${bg}`);
+  // Material the DM marked DM-only. Claude may use it to understand the table, never to tell the players.
+  const secrets = [
+    a && a.summary ? `### DM's notes for the arc "${a.name}"\n${clip(a.summary, 3000)}` : "",
+    ...(c ? c.pcs.filter(p => str(p.secrets).trim()).map(p => `### Secret about player character ${p.name}\n${clip(p.secrets, 800)}`) : []),
+    ...(c ? c.npcs.filter(n => str(n.secrets).trim()).slice(0, 80).map(n => `### Secret about ${n.name}\n${clip(n.secrets, 500)}`) : []),
+    [...wd, ...cd, ...ad].some(sec) ? docsBlock([...wd, ...cd, ...ad].filter(sec), 12000) : "",
+  ].filter(Boolean).join("\n\n");
+  if (secrets) P.push(`DM-ONLY SECRETS (the players do NOT know these). Use them only to understand what's happening. Never put them in "playerRecap" or "partyLearned", and never report them as happening this session unless the transcript shows them being revealed at the table:\n${secrets}`);
   P.push(`SESSION: ${titleLine(s)}${s.date ? " (" + s.date + ")" : ""}`);
   return P.join("\n\n");
 }
@@ -1110,16 +1290,432 @@ function reviewCard(host, key, review){
 /* filing helpers */
 const STATUSES = ["alive","dead","missing","unknown"];
 function findByName(list, name){ const k = norm(name); return list.find(x => norm(x.name) === k) || null; }
-function appendLore(owner, category, title, text, source){
+function appendLore(owner, category, title, text, source, secret){
   const cat = (str(category).trim() || "Other").replace(/^\w/, ch => ch.toUpperCase());
-  let d = owner.docs.find(x => x.auto && norm(x.title) === norm(cat));
-  if (!d) { d = {id:uid("d"), title:cat, text:"", auto:true, updatedAt:Date.now()}; owner.docs.push(d); }
+  const docTitle = secret ? `${cat} (DM only)` : cat;
+  let d = owner.docs.find(x => x.auto && !!x.secret === !!secret && norm(x.title) === norm(docTitle));
+  if (!d) { d = {id:uid("d"), title:docTitle, text:"", auto:true, secret:!!secret, updatedAt:Date.now()}; owner.docs.push(d); }
   const head = `### ${title}`, entry = `${str(text).trim()}${source ? ` _(${source})_` : ""}`;
   const idx = d.text.indexOf(head + "\n");
   if (idx >= 0) { const after = idx + head.length + 1; const next = d.text.indexOf("\n### ", after); const at = next >= 0 ? next : d.text.length; d.text = d.text.slice(0, at).trimEnd() + "\n\n" + entry + d.text.slice(at); }
   else d.text = (d.text.trim() ? d.text.trimEnd() + "\n\n" : "") + head + "\n" + entry;
   d.updatedAt = Date.now();
 }
+
+/* ---------- built-in AI (runs on this phone) ---------- */
+// Small models follow simple labelled text far more reliably than JSON, so prompts ask for headings and bullets.
+async function ask(llm, prompt, maxTokens){
+  const out = await llm([{role:"user", content:prompt}], {max_new_tokens:maxTokens, do_sample:false, repetition_penalty:1.1});
+  const g = out && out[0] && out[0].generated_text;
+  const t = typeof g === "string" ? g : Array.isArray(g) ? str(g[g.length - 1] && g[g.length - 1].content) : "";
+  return t.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
+}
+function parseSections(text, heads){
+  const out = Object.fromEntries(heads.map(h => [h, []])); let cur = null;
+  const re = heads.map(h => [h, new RegExp("^[#*\\s]*" + h.replace(/ /g, "\\s*") + "[*\\s]*:", "i")]);
+  for (const raw of str(text).split("\n")) {
+    const line = raw.trim(); if (!line) continue;
+    const hit = re.find(([, r]) => r.test(line));
+    if (hit) { cur = hit[0]; const rest = line.replace(/^[^:]*:\s*/, "").replace(/\*+/g, "").trim(); if (rest && !/^\(?none\)?\.?$/i.test(rest)) out[cur].push(rest); continue; }
+    if (cur) { const item = line.replace(/^([-*•]|\d+[.)])\s*/, "").replace(/\*+/g, "").trim(); if (item && !/^\(?(none|n\/a|nothing)\)?\.?$/i.test(item)) out[cur].push(item); }
+  }
+  return out;
+}
+function splitKV(item){ const m = /^(.{1,60}?)\s*(?::|—|–|\s-\s)\s*(.*)$/.exec(str(item)); return m ? [m[1].replace(/^["'“]|["'”]$/g, "").trim(), m[2].trim()] : [str(item).trim(), ""]; }
+function lev(a, b){
+  if (a === b) return 0; const m = a.length, n = b.length; if (!m || !n) return m || n;
+  let prev = Array.from({length:n + 1}, (_, j) => j);
+  for (let i = 1; i <= m; i++) { const cur = [i]; for (let j = 1; j <= n; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); prev = cur; }
+  return prev[n];
+}
+// Snap a name the model wrote (often from a misheard transcript) onto a known spelling.
+function snapName(name, known){
+  const n = norm(name); if (!n) return name;
+  let best = null, bs = 0;
+  for (const k of known) {
+    const kn = norm(k); if (!kn) continue;
+    if (kn === n) return k;
+    if (n.length >= 4 && kn.split(" ").includes(n)) return k;
+    const sim = 1 - lev(n, kn) / Math.max(n.length, kn.length);
+    if (sim > bs) { bs = sim; best = k; }
+  }
+  return bs >= 0.78 ? best : name.trim();
+}
+const STOPCAPS = new Set("the a an and but or so then he she they we you i it his her their our its this that there here what when where why how who yes no okay ok well oh um uh dm so if in on at to of for with as by from is are was were be been not all one two three dm's let's i'm i'll you're we're they're".split(" "));
+function termSet(t){ const set = new Set(); for (const m of str(t).matchAll(/\b[A-Z][\p{L}'’-]{2,}/gu)) { const w = m[0].toLowerCase(); if (!STOPCAPS.has(w)) set.add(w); } return set; }
+function lorePassages(s){
+  const {c, w, a} = ctxOf(s); const out = [];
+  // DM-only documents are never shown to the small built-in model: it isn't reliable at keeping secrets.
+  for (const d of [...(w ? w.docs : []), ...(c ? c.docs : []), ...(a && a.docs ? a.docs : [])].filter(d => !d.secret)) {
+    let buf = "";
+    const push = () => { if (buf.trim()) out.push({title:d.title || "Lore", text:buf.trim(), terms:termSet(buf)}); buf = ""; };
+    for (const p of str(d.text).split(/\n\s*\n/)) { if ((buf + p).length > 600 && buf) push(); buf += (buf ? "\n" : "") + p.trim(); }
+    push();
+  }
+  return out;
+}
+// Finds the lore passages that share the most distinctive names with this part of the transcript.
+function topPassages(chunk, passages, known){
+  const ct = termSet(chunk), low = " " + chunk.toLowerCase().replace(/[^\p{L}\p{N}' ]+/gu, " ") + " ";
+  // "Kolxan" in the transcript should also match lore that says "Kolxan Bluebolt"
+  for (const k of known) { const toks = k.toLowerCase().split(/\s+/).filter(w => w.length > 3); if (toks.some(w => low.includes(" " + w + " "))) toks.forEach(w => ct.add(w)); }
+  const df = new Map(); for (const p of passages) for (const t of p.terms) df.set(t, (df.get(t) || 0) + 1);
+  const rare = Math.max(2, Math.ceil(passages.length * 0.15));
+  return passages.map(p => { let sc = 0; for (const t of p.terms) if (ct.has(t)) sc += (df.get(t) || 1) <= rare ? 2 : 1; return [sc, p]; })
+    .filter(x => x[0] >= 2).sort((a, b) => b[0] - a[0]).slice(0, 2)
+    .map(([, p]) => `(${p.title}) ${p.text.slice(0, 450)}`).join("\n");
+}
+function splitWords(text, n){ const w = str(text).split(/\s+/).filter(Boolean); const out = []; for (let i = 0; i < w.length; i += n) out.push(w.slice(i, i + n).join(" ")); return out; }
+function aiErr(e){
+  if (!e) return "Something went wrong. Try again.";
+  if (e.kind === "abort") return "Stopped.";
+  if (e.kind === "offline") return "Couldn't load the AI engine. The first time needs an internet connection to download the model.";
+  const m = String(e.message || e);
+  if (/memory|allocation|OOM|out of range|Aborted/i.test(m)) return "The phone ran out of memory for this model. Pick a smaller built-in AI model in Settings, or use Claude instead.";
+  if (/fetch|network|Failed to load|404/i.test(m)) return "Couldn't download the AI model. Check your connection, or try a different model in Settings.";
+  return "The built-in AI hit a problem: " + m.slice(0, 160) + ". A smaller model in Settings, or Claude, may help.";
+}
+function knownNames(s){
+  const {c, w} = ctxOf(s);
+  const pcs = c ? c.pcs.map(p => p.name) : [], npcs = c ? c.npcs.map(n => n.name) : [];
+  const world = str(w && w.names).split("\n").map(x => x.trim()).filter(Boolean);
+  return {pcs, npcs, all:[...new Set([...pcs, ...npcs, ...world])]};
+}
+
+// Session notes on the phone: read the transcript in parts, then write the recap from those notes.
+async function localNotes(s, ui){
+  const {c, w, a} = ctxOf(s);
+  const llm = await getLLM(ui.dl);
+  const K = knownNames(s), passages = lorePassages(s);
+  const namesLine = K.all.slice(0, 70).join(", ") || "(none yet)";
+  const chunks = splitWords((s.transcript || "").trim(), 1400), n = chunks.length;
+  const steps = n + (a ? 4 : 3);
+  const events = [], people = new Map(), places = new Map(), items = [], quotes = [];
+  const seenEv = new Set(), seenItem = new Set(), seenQuote = new Set();
+  const addNote = (list, note) => { if (note && !list.some(x => norm(x) === norm(note))) list.push(note); };
+  const addPerson = (raw, note) => { const name = snapName(raw, K.all); if (!name || name.length > 40) return; const k = norm(name); const p = people.get(k) || {name, notes:[]}; addNote(p.notes, note); people.set(k, p); };
+  for (let k = 0; k < n; k++) {
+    if (J.stop) throw {kind:"abort"};
+    ui.step(`Reading part ${k + 1} of ${n} of the transcript…`, k / steps);
+    const bg = topPassages(chunks[k], passages, K.all);
+    const txt = await ask(llm, `You are taking notes on part ${k + 1} of ${n} of a recorded Dungeons & Dragons session in the campaign "${c ? c.name : ""}".
+Player characters: ${K.pcs.join(", ") || "(not listed)"}
+Known names (use these spellings): ${namesLine}
+${bg ? `Background lore, for understanding only (do not list it unless it happens in the transcript):\n${bg}\n` : ""}
+Transcript (from speech recognition, so some words are wrong):
+"""
+${chunks[k]}
+"""
+
+Write notes in exactly this format. Use short lines and only include what happens in this part of the game. Ignore table talk about food or real life.
+EVENTS:
+- what happened, in order, one line each (at most 10)
+PEOPLE:
+- Name: what they did or said (non-player characters only)
+PLACES:
+- Name: what happened there
+ITEMS:
+- Item: who has it now
+QUOTES:
+- "a memorable line" - who said it
+Write "none" under a heading if nothing fits.`, 420);
+    const p = parseSections(txt, ["EVENTS","PEOPLE","PLACES","ITEMS","QUOTES"]);
+    for (const e of p.EVENTS.slice(0, 12)) { const k2 = norm(e); if (k2 && !seenEv.has(k2)) { seenEv.add(k2); events.push(e); } }
+    for (const it of p.PEOPLE) { const [nm, note] = splitKV(it); if (!K.pcs.some(x => norm(x) === norm(snapName(nm, K.all)))) addPerson(nm, note); }
+    for (const it of p.PLACES) { const [nm, note] = splitKV(it); const name = snapName(nm, K.all); const kk = norm(name); if (!kk) continue; const pl = places.get(kk) || {name, notes:[]}; addNote(pl.notes, note); places.set(kk, pl); }
+    for (const it of p.ITEMS) { const [nm, who] = splitKV(it); if (nm && !seenItem.has(norm(nm))) { seenItem.add(norm(nm)); items.push({item:nm, who:who ? snapName(who, K.all) : ""}); } }
+    for (const it of p.QUOTES) { const m = /^["“](.+?)["”]\s*(?:[-—–]\s*(.+))?$/.exec(it); if (m && !seenQuote.has(norm(m[1]))) { seenQuote.add(norm(m[1])); quotes.push({text:m[1], who:m[2] ? snapName(m[2], K.all) : ""}); } }
+  }
+  const logLines = s.log.map(e => `- [DM note, ${(TAGMAP[e.tag] || TAGMAP.plot).label}] ${e.text}`);
+  for (const e of s.log) if (e.tag === "npc") { const [nm, note] = splitKV(e.text); addPerson(nm, note); }
+  let evText = [...events.map(e => "- " + e), ...logLines].join("\n");
+  if (!evText.trim()) throw {kind:"empty"};
+  if (evText.length > 5000) {
+    const lines = evText.split("\n"), parts = [];
+    for (let i = 0; i < lines.length; i += 30) {
+      if (J.stop) throw {kind:"abort"};
+      ui.step(`Condensing the notes (${Math.floor(i / 30) + 1} of ${Math.ceil(lines.length / 30)})…`, (n + 0.5) / steps);
+      parts.push(await ask(llm, `Summarize these events from part of a D&D session in one short paragraph, past tense, keeping names:\n${lines.slice(i, i + 30).join("\n")}`, 200));
+    }
+    evText = parts.join("\n\n");
+  }
+  if (J.stop) throw {kind:"abort"};
+  ui.step("Writing the recap…", n / steps);
+  const recap = (await ask(llm, `Here is what happened in a Dungeons & Dragons session, in order:
+${evText}
+
+Write a recap for the Dungeon Master in 2 to 3 short paragraphs, past tense, in order. Only use what is listed above. Do not add headings.`, 400)).replace(/^(recap|summary)\s*:\s*/i, "");
+  if (J.stop) throw {kind:"abort"};
+  ui.step("Writing the player recap…", (n + 1) / steps);
+  const player = (await ask(llm, `Rewrite this session recap as a short "last time on..." summary to read to the players, in 2 short paragraphs, past tense, speaking to the party. Leave out anything marked as a DM note about secrets or future plans.
+
+${recap}`, 320)).replace(/^(last time on[^:]*:|recap\s*:)\s*/i, "");
+  if (J.stop) throw {kind:"abort"};
+  ui.step("Finding open threads…", (n + 2) / steps);
+  const meta = parseSections(await ask(llm, `Based on this D&D session recap:
+${recap}
+
+Answer in exactly this format:
+TITLE: a 4 to 8 word title for the session
+OPEN THREADS:
+- an unresolved quest, mystery, or promise (at most 6)
+PREP IDEAS:
+- something the Dungeon Master may want to prepare next time (at most 5)`, 260), ["TITLE","OPEN THREADS","PREP IDEAS"]);
+  let arcSoFar = "";
+  if (a) {
+    if (J.stop) throw {kind:"abort"};
+    ui.step("Updating the arc's story so far…", (n + 3) / steps);
+    arcSoFar = await ask(llm, `Story of the "${a.name}" arc so far: ${a.storySoFar || "(this is the first session of the arc)"}
+
+What happened this session: ${recap}
+
+Write the updated story of the arc so far in one paragraph, past tense.`, 280);
+  }
+  // build the same shape Claude returns, so review and filing work the same way
+  const pcMoments = [];
+  for (const pc of K.pcs) { const first = pc.split(/\s+/)[0].toLowerCase(); events.filter(e => e.toLowerCase().includes(first)).slice(0, 2).forEach(e => pcMoments.push({pc, text:e})); }
+  const roster = c ? c.npcs : [];
+  const npcs = [...people.values()].map(p => ({name:p.name, status: roster.some(r => norm(r.name) === norm(p.name)) ? "returning" : "new", note:p.notes.slice(0, 2).join("; ")}));
+  return {
+    headline: (meta.TITLE[0] || "").replace(/^["“]|["”]$/g, ""), recap, playerRecap: player,
+    plot: events.slice(0, 30).map(t => ({text:t, major:false})),
+    npcs, locations: [...places.values()].map(p => ({name:p.name, note:p.notes.slice(0, 2).join("; ")})),
+    loot: items.slice(0, 20), threads: meta["OPEN THREADS"].slice(0, 6).map(t => ({text:t, status:"opened"})),
+    partyLearned: [], pcMoments, quotes: quotes.slice(0, 8),
+    rulings: s.log.filter(e => e.tag === "ruling").map(e => e.text), hooks: meta["PREP IDEAS"].slice(0, 5), unclear: [],
+    records: {
+      npcs: [...people.values()].map(p => ({name:p.name, role:"", status:"", add:p.notes.slice(0, 3).join(" ").slice(0, 400)})),
+      pcs: pcMoments.map(m => ({name:m.pc, add:m.text})),
+      lore: [...places.values()].filter(p => p.notes.length).map(p => ({category:"Places", title:p.name, text:p.notes.join(" ").slice(0, 500)})),
+      arcSoFar,
+    },
+  };
+}
+
+// Lore sorting: split a document into sections, then classify each section and pull out people and names.
+function splitSections(text, docTitle){
+  const lines = str(text).replace(/\r/g, "").split("\n"), secs = []; let cur = {title:"", lines:[]};
+  const isHead = (l, i) => {
+    const t = l.trim(); if (!t) return false;
+    if (/^#{1,6}\s+\S/.test(t)) return true;
+    const prevBlank = i === 0 || !lines[i - 1].trim(), next = (lines[i + 1] || "").trim();
+    const wordsN = t.split(/\s+/).length;
+    return prevBlank && next && wordsN <= 7 && t.length <= 60 && !/[.,;!?]$/.test(t) && (t === t.toUpperCase() && /[A-Z]/.test(t) || /^([A-Z0-9'’"“][\p{L}0-9'’"”-]*\s*)+$/u.test(t.replace(/\b(of|the|and|in|on|a|an|to|de|von)\b/g, "X")));
+  };
+  lines.forEach((l, i) => {
+    if (isHead(l, i)) { if (cur.lines.join("").trim() || cur.title) secs.push(cur); cur = {title:l.trim().replace(/^#+\s*/, ""), lines:[]}; }
+    else cur.lines.push(l);
+  });
+  if (cur.lines.join("").trim() || cur.title) secs.push(cur);
+  let out = secs.map(s => ({title:s.title, text:s.lines.join("\n").trim()})).filter(s => s.text || s.title);
+  // fold tiny sections (just a heading) into the next one
+  const merged = [];
+  for (const s of out) { const prev = merged[merged.length - 1]; if (prev && !prev.text) { prev.text = (s.title ? s.title + "\n" : "") + s.text; } else merged.push({...s}); }
+  out = merged.filter(s => s.text);
+  // break long sections into pieces a small model can read
+  const final = [];
+  for (const s of out) {
+    const parts = splitWords(s.text, 1100);
+    if (parts.length <= 1) final.push(s);
+    else { const paras = s.text.split(/\n\s*\n/); let buf = "", k = 1; for (const p of paras) { if (words(buf + " " + p) > 1100 && buf) { final.push({title:`${s.title || docTitle} (part ${k++})`, text:buf.trim(), titleless:!s.title}); buf = ""; } buf += "\n\n" + p; } if (buf.trim()) final.push({title:`${s.title || docTitle}${k > 1 ? ` (part ${k})` : ""}`, text:buf.trim(), titleless:!s.title}); }
+  }
+  return final.map(s => ({...s, titleless: s.titleless || !s.title}));
+}
+const LORE_CATS = ["Places","Factions","Items","History","Religion","Magic","People","Other"];
+function guessCategory(t){
+  const x = str(t).toLowerCase();
+  if (/\b(god|goddess|faith|religion|pantheon|deity|church|temple|worship|shard)\b/.test(x)) return "Religion";
+  if (/\b(war|history|age|era|founding|fall|timeline|origin|ancient|chronicle)\b/.test(x)) return "History";
+  if (/\b(guild|order|cult|clan|house|faction|council|army|legion|circle|court|company|alliance)\b/.test(x)) return "Factions";
+  if (/\b(city|town|village|kingdom|realm|forest|mountain|river|sea|isle|island|keep|tower|castle|ruins|desert|canyon|marsh|waste|wastes|continent|region|port|harbor|academy)\b/.test(x)) return "Places";
+  if (/\b(magic|spell|arcane|ritual|enchant|curse)\b/.test(x)) return "Magic";
+  if (/\b(sword|ring|orb|artifact|item|relic|book|codex|amulet|staff|weapon|armor)\b/.test(x)) return "Items";
+  return "Other";
+}
+function findNames(text){
+  const counts = new Map();
+  for (const m of str(text).matchAll(/\b([A-Z][\p{L}'’-]+(?:[ \t]+(?:(?:of|the|de|von|van|al)[ \t]+)?[A-Z][\p{L}'’-]+)*)/gu)) {
+    const ws = m[1].trim().split(/[ \t]+/);
+    while (ws.length && STOPCAPS.has(ws[0].toLowerCase())) ws.shift();
+    while (ws.length && STOPCAPS.has(ws[ws.length - 1].toLowerCase())) ws.pop();
+    const nm = ws.join(" "); if (!nm || STOPCAPS.has(nm.toLowerCase()) || nm.length < 3) continue;
+    counts.set(nm, (counts.get(nm) || 0) + 1);
+  }
+  return [...counts].filter(([nm, n]) => n >= 2 || /['’-]|\s/.test(nm)).map(([nm]) => nm).slice(0, 80);
+}
+
+/* ---------- DM-only secrets: leak check ----------
+   A name or 5-word phrase is "secret" if it appears in DM-only material but nowhere the players have
+   been exposed to (transcripts, public table-log lines, earlier player recaps, public lore and rosters).
+   Player recaps and the journal are checked against that list, whatever wrote them. */
+let DATA_VER = 0;
+const bump = () => { DATA_VER++; SEARCH.index = null; };
+const toks = t => str(t).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/['’`]/g, "").split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+const SHINGLE = 5;
+function secretTextOf(c){
+  const w = c && S.worlds.get(c.worldId); if (!c) return "";
+  const arcs = arcsOf(c.id);
+  return [
+    ...(w ? w.docs : []).filter(d => d.secret).map(d => d.text),
+    ...c.docs.filter(d => d.secret).map(d => d.text),
+    ...arcs.flatMap(a => [a.summary || "", ...(a.docs || []).filter(d => d.secret).map(d => d.text)]),
+    ...c.npcs.map(n => n.secrets || ""), ...c.pcs.map(p => p.secrets || ""),
+  ].filter(x => str(x).trim()).join("\n\n");
+}
+function publicTextsOf(c){
+  const w = S.worlds.get(c.worldId), out = [];
+  for (const d of [...(w ? w.docs : []), ...c.docs, ...arcsOf(c.id).flatMap(a => a.docs || [])]) if (!d.secret) out.push(d.text);
+  for (const n of c.npcs) out.push(n.name, n.role, n.notes);
+  for (const p of c.pcs) out.push(p.name, p.desc, p.notes);
+  for (const a of arcsOf(c.id)) out.push(a.name, a.storySoFar);
+  for (const s of sessionsOf(c.id)) {
+    out.push(s.transcript, ...s.log.filter(e => e.tag !== "lore" && e.tag !== "hook").map(e => e.text));
+    // A recap only counts as something the players have heard once the DM has okayed it;
+    // otherwise a recap would clear its own leaks.
+    if (s.notes && s.notes.leakOk) out.push(s.notes.playerRecap, ...(s.notes.partyLearned || []));
+  }
+  return out;
+}
+const LEAK = {key:null, grams:null, firsts:null, maxLen:0, display:null};
+function leakGrams(c){
+  const key = c.id + ":" + DATA_VER;
+  if (LEAK.key === key) return LEAK;
+  const secret = secretTextOf(c);
+  LEAK.key = key; LEAK.grams = new Set(); LEAK.firsts = new Set(); LEAK.display = new Map(); LEAK.maxLen = 0;
+  if (!secret.trim()) return LEAK;
+  // names (1-4 words) and 5-word phrases from the secret material
+  for (const nm of findNames(secret)) {
+    const t = toks(nm); if (!t.length || t.length > 4 || t.join("").length < 4) continue;
+    const k = t.join(" "); LEAK.grams.add(k); LEAK.display.set(k, nm); LEAK.firsts.add(t[0]); LEAK.maxLen = Math.max(LEAK.maxLen, t.length);
+  }
+  for (const para of secret.split(/\n+/)) {
+    const t = toks(para);
+    for (let i = 0; i + SHINGLE <= t.length; i++) { const k = t.slice(i, i + SHINGLE).join(" "); if (!LEAK.grams.has(k)) { LEAK.grams.add(k); LEAK.firsts.add(t[i]); } }
+  }
+  LEAK.maxLen = Math.max(LEAK.maxLen, SHINGLE);
+  // anything the players have already seen or heard isn't a secret
+  for (const text of publicTextsOf(c)) {
+    const t = toks(text);
+    for (let i = 0; i < t.length; i++) {
+      if (!LEAK.firsts.has(t[i])) continue;
+      for (let L = 1; L <= LEAK.maxLen && i + L <= t.length; L++) { const k = t.slice(i, i + L).join(" "); if (LEAK.grams.has(k)) LEAK.grams.delete(k); }
+    }
+  }
+  return LEAK;
+}
+// Returns the secret names and phrases found in a piece of player-facing text.
+function findLeaks(c, text){
+  if (!c || !str(text).trim()) return {names:[], phrases:0};
+  const G = leakGrams(c); if (!G.grams.size) return {names:[], phrases:0};
+  const t = toks(text), names = new Set(); let phrases = 0, lastEnd = -1;
+  for (let i = 0; i < t.length; i++) {
+    if (!G.firsts.has(t[i])) continue;
+    for (let L = 1; L <= G.maxLen && i + L <= t.length; L++) {
+      const k = t.slice(i, i + L).join(" ");
+      if (!G.grams.has(k)) continue;
+      if (L === SHINGLE && !G.display.has(k)) { if (i > lastEnd) phrases++; lastEnd = i + SHINGLE - 1; } // overlapping matches count once
+      else names.add(G.display.get(k) || k);
+    }
+  }
+  // "Caelindra" is redundant when "Xi'Caelindra Autumn" is also listed
+  const list = [...names]; const keep = list.filter(n => !list.some(o => o !== n && toks(o).join(" ").includes(toks(n).join(" "))));
+  return {names:keep, phrases};
+}
+function leakKey(L){ return [...L.names].sort().join("|") + "#" + L.phrases; }
+function stripLeaks(c, text){
+  return str(text).split(/\n+/).map(p => p.split(/(?<=[.!?…])\s+/).filter(snt => { const L = findLeaks(c, snt); return !L.names.length && !L.phrases; }).join(" ")).filter(p => p.trim()).join("\n\n");
+}
+// Warning box for a player recap. onChange re-renders the caller.
+function leakBox(s, onChange){
+  const {c} = ctxOf(s); if (!c || !s.notes || !s.notes.playerRecap) return null;
+  const L = findLeaks(c, s.notes.playerRecap);
+  if ((!L.names.length && !L.phrases) || s.notes.leakOk === leakKey(L)) return null;
+  const box = el("div","card warn");
+  const what = [L.names.length ? L.names.map(n => `“${n}”`).join(", ") : "", L.phrases ? `${L.phrases} phrase${L.phrases === 1 ? "" : "s"} copied from your notes` : ""].filter(Boolean).join(" and ");
+  const one = L.names.length + L.phrases === 1;
+  box.append(el("strong", null, "Check before sharing"), el("p","help", `This player recap mentions ${what}, which only ${one ? "appears" : "appear"} in DM-only material. As far as the app can tell, the players haven't heard ${one ? "it" : "them"} at the table yet.`));
+  const r = el("div","row");
+  r.append(btn("Remove those sentences", "primary", () => { s.notes.playerRecap = stripLeaks(c, s.notes.playerRecap); saveSess(s, true); bump(); toast("Removed"); onChange(); }),
+    btn("It's fine", "ghost", () => { s.notes.leakOk = leakKey(L); saveSess(s, true); onChange(); }));
+  box.append(r); return box;
+}
+// Share the player recap, with one extra tap if it still mentions secrets.
+function sharePlayerRecap(s, b){
+  const {c} = ctxOf(s); const L = findLeaks(c, s.notes.playerRecap);
+  const go = () => share(titleLine(s), s.notes.playerRecap || "");
+  if ((L.names.length || L.phrases) && s.notes.leakOk !== leakKey(L)) arm(b, "Mentions DM-only material · tap to share anyway", go); else go();
+}
+
+function quickOrganize(scope, doc){
+  const secs = splitSections(doc.text, doc.title);
+  const npcs = [];
+  for (const line of str(doc.text).split("\n")) {
+    const m = /^\s*[-*•]?\s*([A-Z][\p{L}'’ -]{1,40}?)\s*(?:—|–|\s-\s|:)\s*(.{4,})$/u.exec(line);
+    if (m && m[1].trim().split(/\s+/).length <= 4 && !LORE_CATS.includes(m[1].trim())) npcs.push({name:m[1].trim(), role:m[2].trim().slice(0, 120), status:"", notes:""});
+  }
+  return {npcs: scope.campaign ? npcs : [], pcs:[], lore: secs.map(s => ({category:guessCategory(s.title + " " + s.text.slice(0, 400)), title:s.title || doc.title, text:s.text})), names: findNames(doc.text)};
+}
+async function localOrganize(scope, doc, ui){
+  const llm = await getLLM(ui.dl);
+  const secs = splitSections(doc.text, doc.title), out = {npcs:[], pcs:[], lore:[], names:[]};
+  const known = scope.campaign ? scope.campaign.pcs.map(p => p.name) : [];
+  for (let i = 0; i < secs.length; i++) {
+    if (J.stop) throw {kind:"abort"};
+    const s = secs[i]; ui.step(`Sorting section ${i + 1} of ${secs.length}${s.title ? `: ${s.title}` : ""}…`, i / secs.length);
+    const txt = await ask(llm, `You are sorting a Dungeon Master's lore notes for the world "${scope.world.name}".
+Section title: ${s.titleless ? "(untitled)" : s.title}
+Text:
+"""
+${s.text.slice(0, 7000)}
+"""
+
+Answer in exactly this format:
+TITLE: a short title for this section
+CATEGORY: one of Places, Factions, Items, History, Religion, Magic, People, Other
+PEOPLE:
+- Name: who they are, in a few words
+NAMES: every proper noun in the text, separated by commas`, 260);
+    const p = parseSections(txt, ["TITLE","CATEGORY","PEOPLE","NAMES"]);
+    const cat = LORE_CATS.find(c => (p.CATEGORY[0] || "").toLowerCase().includes(c.toLowerCase())) || guessCategory(s.title + " " + s.text.slice(0, 400));
+    const title = s.titleless ? (p.TITLE[0] || s.title).replace(/^["“]|["”]$/g, "") : s.title;
+    out.lore.push({category:cat, title, text:s.text});
+    for (const it of p.PEOPLE) { const [nm, role] = splitKV(it); if (nm && nm.split(/\s+/).length <= 5 && !known.some(k => norm(k) === norm(nm))) out.npcs.push({name:nm, role, status:"", notes:""}); }
+    out.names.push(...p.NAMES.join(",").split(/,|;/).map(x => x.trim()).filter(x => x && x.length <= 60 && /^[A-Z]/.test(x)));
+  }
+  // the same person can turn up in several sections
+  const seen = new Map(); for (const n of out.npcs) { const k = norm(n.name); if (!seen.has(k)) seen.set(k, n); else if (!seen.get(k).role && n.role) seen.get(k).role = n.role; }
+  out.npcs = scope.campaign ? [...seen.values()] : [];
+  out.names = [...new Set([...out.names, ...findNames(doc.text)])].slice(0, 120);
+  return out;
+}
+
+/* job UI shared by the built-in AI buttons (progress survives switching tabs) */
+const JOB = {key:null, msg:"", frac:null, err:false};
+function jobSet(key, msg, frac, err){
+  Object.assign(JOB, {key, msg, frac, err:!!err});
+  const m = document.getElementById("jm-" + key); if (m) { m.textContent = msg; m.classList.toggle("err", !!err); }
+  const b = document.getElementById("jb-" + key); if (b) { b.hidden = frac == null; b.firstChild.style.width = Math.round((frac || 0) * 100) + "%"; }
+}
+function jobBlock(key, label, cls, run){
+  const wrap = el("div","view"); wrap.style.gap = "10px";
+  const r = el("div","row"); const mine = J.busy && JOB.key === key;
+  const stop = btn("Stop", "", () => { J.stop = true; stop.hidden = true; jobSet(key, "Stopping after the current step…", JOB.frac); });
+  const goBtn = btn(label, cls || "primary", async () => {
+    if (J.busy) { toast("Something else is running. Wait for it to finish."); return; }
+    if (R.on) { toast("Stop recording first."); return; }
+    J.busy = true; J.stop = false; goBtn.disabled = true; stop.hidden = false; keepAwake(); jobSet(key, "Getting ready…", 0);
+    try { await run(key); }
+    catch (e) { jobSet(key, e && e.kind === "empty" ? "There's nothing to work from yet. Record and transcribe, paste a transcript, or log a few entries first." : aiErr(e), null, !(e && e.kind === "abort")); }
+    finally { J.busy = false; render(); }
+  });
+  stop.hidden = !mine; goBtn.disabled = mine;
+  r.append(goBtn, stop);
+  const bar = el("div","bar"); bar.id = "jb-" + key; bar.append(el("span")); bar.hidden = !(JOB.key === key && JOB.frac != null);
+  if (JOB.key === key && JOB.frac != null) bar.firstChild.style.width = Math.round(JOB.frac * 100) + "%";
+  const msg = el("span","meta msg"); msg.id = "jm-" + key; if (JOB.key === key) { msg.textContent = JOB.msg; msg.classList.toggle("err", JOB.err); }
+  wrap.append(r, bar, msg); return wrap;
+}
+const dlMsg = key => (l, t) => jobSet(key, `Downloading the built-in AI (one time): ${mb(l)} of ${mb(t)}`, l / t);
 
 /* ---------- notes view ---------- */
 function normalizeNotes(n){
@@ -1208,15 +1804,32 @@ function renderNotes(){
   const s = sess(); const host = $("notesEx"); host.replaceChildren(); const out = $("notesOut"); out.replaceChildren();
   const key = "sess:" + s.id;
   if (S.reviews[key]) reviewCard(host, key, S.reviews[key]);
-  else exchangeCard(host, {key, title: s.notes ? "Rebuild notes with Claude" : "Make notes with Claude",
-    help: (s.transcript || "").trim() || s.log.length ? `Sends the transcript (${words(s.transcript || "").toLocaleString()} words), your table log and this campaign's lore. Free with any Claude account.` : "Nothing to work from yet. Record and transcribe, paste a transcript, or log a few entries on the Table tab first.",
-    prompts: () => sessionPrompts(s), onReply: j => sessionReview(s, j)});
+  else {
+    const has = (s.transcript || "").trim() || s.log.length;
+    const card = el("div","card");
+    const m = llmInfo(), wc = words(s.transcript || ""), parts = Math.max(1, Math.ceil(wc / 1400));
+    card.append(el("strong", null, s.notes ? "Remake notes on this phone" : "Make notes on this phone"),
+      el("p","help", has ? `The built-in AI (${m.label.split(" · ")[0]}) reads the transcript in ${parts} part${parts === 1 ? "" : "s"}, checks your lore for anything relevant, and writes the recap, NPCs, places and threads. No account or internet needed once it's downloaded (${m.size}). Keep the app open and the phone plugged in.` : "Nothing to work from yet. Record and transcribe, paste a transcript, or log a few entries on the Table tab first."));
+    card.append(jobBlock("ln:" + s.id, s.notes ? "Remake notes" : "Make notes", "primary", async jk => {
+      const j = await localNotes(s, {dl:dlMsg(jk), step:(msg, f) => jobSet(jk, msg, f)});
+      S.reviews[key] = sessionReview(s, j); jobSet(jk, "Notes ready. Review them above, then save.", null);
+    }));
+    host.append(card);
+    const more = el("details","more"); more.append(el("summary", null, "Or use Claude instead (best quality)"));
+    const inner = el("div"); inner.style.marginTop = "8px";
+    exchangeCard(inner, {key, title: s.notes ? "Rebuild notes with Claude" : "Make notes with Claude",
+      help: has ? `Sends the transcript (${wc.toLocaleString()} words), your table log and this campaign's lore through copy and paste. Free with any Claude account, and noticeably better than the built-in AI.` : "Nothing to work from yet.",
+      prompts: () => sessionPrompts(s), onReply: j => sessionReview(s, j)});
+    more.append(inner); host.append(more);
+  }
   if (!s.notes) return;
   const n = s.notes;
   out.append(el("span","meta", `Notes saved ${ago(s.notesAt)}`), el("h2","title", n.headline || sessTitle(s)));
   const acts = el("div","row");
-  acts.append(btn("Copy notes", "", () => copyRich(notesText(s), notesHTML(s))), btn("Share", "", () => share(titleLine(s), notesText(s))), btn("Player recap", "ghost", () => share(titleLine(s), n.playerRecap || "")));
+  const pr = btn("Share player recap", "ghost", () => sharePlayerRecap(s, pr));
+  acts.append(btn("Copy notes", "", () => copyRich(notesText(s), notesHTML(s))), btn("Share", "", () => share(titleLine(s), notesText(s))), pr);
   out.append(acts);
+  const lb = leakBox(s, renderNotes); if (lb) out.append(lb);
   let x;
   if (n.recap) { x = secEl("Recap"); x.append(prose(n.recap)); out.append(x); }
   if (n.plot.length) { x = secEl("Plot developments", n.plot.length); x.append(listEl(n.plot, (li, p) => { if (p.major) li.classList.add("major"); li.append(el("span", null, p.text)); })); out.append(x); }
@@ -1230,7 +1843,7 @@ function renderNotes(){
   if (n.rulings.length) { x = secEl("Rulings", n.rulings.length); x.append(listEl(n.rulings, (li, p) => li.append(el("span", null, p)))); out.append(x); }
   if (n.hooks.length) { x = secEl("Prep for next session", n.hooks.length); x.append(listEl(n.hooks, (li, p) => li.append(el("span", null, p)))); out.append(x); }
   if (n.unclear.length) { x = secEl("Check these", n.unclear.length); x.append(listEl(n.unclear, (li, p) => li.append(el("span", null, p)))); out.append(x); }
-  if (n.playerRecap) { x = secEl("Player recap"); const box = el("div","player"); box.append(el("span","lbl","Safe to read aloud or post"), prose(n.playerRecap)); x.append(box); out.append(x); }
+  if (n.playerRecap) { x = secEl("Player recap"); const box = el("div","player"); box.append(el("span","lbl", lb ? "Check the warning above before sharing" : "Safe to read aloud or post"), prose(n.playerRecap)); x.append(box); out.append(x); }
 }
 
 /* ---------- library: worlds → campaigns → arcs ---------- */
@@ -1246,7 +1859,7 @@ function openSession(id){
   if (S.sessId !== id) { if (L.on) stopCaptions(); if (R.on) stopRecording(); }
   S.sessId = id; S.view = "table"; saveActive(); render(); $("main").scrollTop = 0;
 }
-const go = patch => { S.lib = {...S.lib, edit:null, q:"", ...patch}; render(); $("main").scrollTop = 0; };
+const go = patch => { S.lib = {...S.lib, edit:null, q:"", ...patch}; if ("search" in patch) { SEARCH.q = ""; $("libSearch").value = ""; } render(); $("main").scrollTop = 0; };
 const edit = e => { S.lib.edit = e; render(); $("main").scrollTop = 0; };
 function crumbs(){
   const box = el("nav","crumbs"); box.setAttribute("aria-label","Library path");
@@ -1292,12 +1905,93 @@ function docsSection(owner, kind, storeName){
     render();
   };
   sec.querySelector(".lhead").append(imp);
-  sec.append(rows(owner.docs, d => ({t:(d.auto ? "◆ " : "") + (d.title || "Untitled"), r:`${words(d.text).toLocaleString()} words`, s:str(d.text).slice(0, 120).replace(/\s+/g, " "), go:() => edit({type:"doc", kind, id:owner.id, doc:d.id})}), "Paste or import background, history, factions, anything Claude should know. Open a document and tap Organize to sort it into NPCs, characters and lore."));
+  sec.append(rows(owner.docs, d => ({t:(d.auto ? "◆ " : "") + (d.title || "Untitled"), r:`${d.secret ? "DM only · " : ""}${words(d.text).toLocaleString()} words`, s:str(d.text).slice(0, 120).replace(/\s+/g, " "), go:() => edit({type:"doc", kind, id:owner.id, doc:d.id})}), "Paste or import background, history, factions, anything Claude should know. Open a document to sort it into NPCs, characters and lore, or mark it DM only."));
   if (owner.docs.some(d => d.auto)) sec.append(el("p","help","◆ Filed automatically from session notes and organized lore."));
   return sec;
 }
+
+/* ---------- search everything ---------- */
+const SEARCH = {index:null, q:"", timer:null};
+const sfold = t => str(t).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/['’`-]/g, "");
+function buildIndex(){
+  const ix = [];
+  const add = (type, title, body, path, open, weight) => ix.push({type, title, body:str(body), path, open, w:weight || 1, ft:sfold(title), fb:sfold(body)});
+  for (const w of S.worlds.values()) {
+    add("World", w.name, "", "", () => go({w:w.id, c:null, a:null, search:""}), 2);
+    if (str(w.names).trim()) add("Names list", `${w.name} names & places`, w.names.split("\n").join(" · "), w.name, () => go({w:w.id, c:null, a:null, search:""}));
+    for (const d of w.docs) add(d.secret ? "Lore · DM only" : "Lore", d.title || "Untitled", d.text, w.name, () => { S.lib = {w:w.id, c:null, a:null, q:"", search:"", edit:{type:"doc", kind:"world", id:w.id, doc:d.id}}; endSearch(); });
+  }
+  for (const c of S.campaigns.values()) {
+    const w = S.worlds.get(c.worldId), path = [w && w.name, c.name].filter(Boolean).join(" › "), base = {w:c.worldId, c:c.id, a:null, q:"", search:""};
+    add("Campaign", c.name, "", w ? w.name : "", () => go({w:c.worldId, c:c.id, a:null, search:""}), 2);
+    for (const n of c.npcs) add("NPC", n.name, [n.role, n.status, n.notes, n.secrets].filter(Boolean).join(" · "), path, () => { S.lib = {...base, edit:{type:"npc", id:c.id, item:n.id}}; endSearch(); }, 3);
+    for (const p of c.pcs) add("Character", p.name, [p.player, p.desc, p.notes, p.secrets].filter(Boolean).join(" · "), path, () => { S.lib = {...base, edit:{type:"pc", id:c.id, item:p.id}}; endSearch(); }, 3);
+    for (const d of c.docs) add(d.secret ? "Lore · DM only" : "Lore", d.title || "Untitled", d.text, path, () => { S.lib = {...base, edit:{type:"doc", kind:"campaign", id:c.id, doc:d.id}}; endSearch(); });
+    for (const a of arcsOf(c.id)) {
+      add("Arc", a.name, [a.storySoFar, a.summary].filter(Boolean).join(" · "), path, () => go({w:c.worldId, c:c.id, a:a.id, search:""}), 2);
+      for (const d of a.docs || []) add(d.secret ? "Lore · DM only" : "Lore", d.title || "Untitled", d.text, path + " › " + a.name, () => { S.lib = {...base, a:a.id, edit:{type:"doc", kind:"arc", id:a.id, doc:d.id}}; endSearch(); });
+    }
+    for (const s of sessionsOf(c.id)) {
+      const t = titleLine(s), openAt = v => () => { endSearch(); openSession(s.id); S.view = v; render(); };
+      if (s.notes) { const n = s.notes; add("Session notes", t, [n.recap, n.playerRecap, ...n.plot.map(p => p.text), ...n.npcs.map(p => p.name + " " + p.note), ...n.locations.map(p => p.name + " " + p.note), ...n.loot.map(p => p.item + " " + p.who), ...n.threads.map(p => p.text), ...n.quotes.map(p => p.text), ...n.partyLearned, ...n.hooks, ...n.rulings].filter(Boolean).join(" · "), path, openAt("notes"), 1.5); }
+      else add("Session", t, "", path, openAt("table"), 1.5);
+      if (s.log.length) add("Table log", t, s.log.map(e => e.text).join(" · "), path, openAt("table"));
+      if (str(s.transcript).trim()) add("Transcript", t, s.transcript, path, openAt("listen"), 0.5);
+    }
+  }
+  return ix;
+}
+function endSearch(){ SEARCH.q = ""; S.lib.search = ""; $("libSearch").value = ""; render(); $("main").scrollTop = 0; }
+function termRegex(terms){
+  // lets "xioryon" find "Xi'Oryon", and ignores case
+  const pat = terms.map(t => [...t].map(ch => ch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("['’`-]?")).join("|");
+  return new RegExp(pat, "giu");
+}
+function highlight(text, re){
+  const frag = document.createDocumentFragment(); let last = 0; re.lastIndex = 0; let m;
+  while ((m = re.exec(text))) { if (!m[0].length) { re.lastIndex++; continue; } frag.append(text.slice(last, m.index)); const mk = el("mark", null, m[0]); frag.append(mk); last = m.index + m[0].length; }
+  frag.append(text.slice(last)); return frag;
+}
+function snippet(body, re){
+  const flat = body.replace(/\s+/g, " "); re.lastIndex = 0; const m = re.exec(flat);
+  if (!m) return flat.slice(0, 140);
+  const start = Math.max(0, m.index - 50); let s = flat.slice(start, m.index + 110);
+  if (start > 0) s = "…" + s.replace(/^\S*\s/, ""); if (m.index + 110 < flat.length) s += "…";
+  return s;
+}
+function renderSearch(v){
+  const terms = sfold(SEARCH.q).split(/\s+/).filter(Boolean);
+  if (!SEARCH.index) SEARCH.index = buildIndex();
+  const hits = [];
+  for (const it of SEARCH.index) {
+    let score = 0, ok = true;
+    for (const t of terms) { const inT = it.ft.includes(t), inB = !inT && it.fb.includes(t); if (!inT && !inB) { ok = false; break; } score += inT ? 5 : 1; }
+    if (!ok) continue;
+    if (it.ft === terms.join(" ")) score += 10;
+    hits.push([score * it.w, it]);
+  }
+  hits.sort((a, b) => b[0] - a[0]);
+  v.append(el("span","meta", hits.length ? `${hits.length > 80 ? "Top 80 of " + hits.length : hits.length} result${hits.length === 1 ? "" : "s"} for “${SEARCH.q.trim()}”` : `Nothing matches “${SEARCH.q.trim()}”. Try fewer words or part of a name.`));
+  const re = termRegex(terms), ul = el("ul","results");
+  for (const [, it] of hits.slice(0, 80)) {
+    const li = el("li"), b = el("button"); b.type = "button";
+    const head = el("span","rh"); const tt = el("span","rt"); tt.append(highlight(it.title, re)); head.append(tt, el("span","pill update", it.type)); b.append(head);
+    if (it.path) b.append(el("span","rp", it.path));
+    if (it.body) { const sn = el("span","rs"); sn.append(highlight(snippet(it.body, re), re)); b.append(sn); }
+    b.onclick = it.open; li.append(b); ul.append(li);
+  }
+  v.append(ul);
+}
+$("libSearch").addEventListener("input", e => {
+  SEARCH.q = e.target.value; S.lib.search = SEARCH.q;
+  clearTimeout(SEARCH.timer); SEARCH.timer = setTimeout(() => { if (S.view === "library") renderLibrary(); }, 120);
+});
+$("libSearch").addEventListener("keydown", e => { if (e.key === "Escape") { e.target.value = ""; SEARCH.q = ""; renderLibrary(); } });
+
 function renderLibrary(){
-  const v = $("v-library"); v.replaceChildren();
+  const v = $("libBody"); v.replaceChildren();
+  if (document.activeElement !== $("libSearch")) $("libSearch").value = SEARCH.q;
+  if (SEARCH.q.trim()) return renderSearch(v);
   const {w, c, a} = S.lib;
   if (w && !S.worlds.has(w)) S.lib.w = null; if (c && !S.campaigns.has(c)) S.lib.c = null; if (a && !S.arcs.has(a)) S.lib.a = null;
   v.append(crumbs());
@@ -1341,11 +2035,12 @@ function renderWorld(v, w){
   const r = el("div","row");
   r.append(btn("Share world file", "ghost", () => exportWorld(w)));
   const del = btn("Delete world", "danger", () => arm(del, "Tap again: deletes everything in it", async () => { await deleteWorld(w); go({w:null, c:null, a:null}); toast("World deleted"); }));
-  r.append(del); ss.append(el("p","help","A world file holds its lore, names, campaigns, characters, NPCs and arcs, but not your session notes. Good for sharing a setting with another DM."), r); v.append(ss);
+  r.append(del); ss.append(el("p","help","A world file holds its lore, names, campaigns, characters, NPCs and arcs, including anything marked DM only, but not your session notes. It's for sharing a setting with another DM, not with players."), r); v.append(ss);
 }
 function renderCampaign(v, c){
   v.append(el("span","eyebrow","Campaign"), el("h2","title", c.name));
-  v.append(btn("+ New session", "primary block", () => newSession(c.id, null)));
+  const top = el("div","row"); top.append(btn("+ New session", "primary grow", () => newSession(c.id, null)), btn("Player journal", "", () => edit({type:"journal", id:c.id, learned:true})));
+  v.append(top);
   const ar = arcsOf(c.id);
   const as = lsec("Arcs", ar.length);
   as.append(rows(ar, a => { const n = sessionsOf(c.id).filter(s => s.arcId === a.id).length; return {t:a.name, r:a.status || "", s:`${n} session${n === 1 ? "" : "s"}${a.summary ? " · " + a.summary.slice(0, 80).replace(/\s+/g, " ") : ""}`, go:() => go({a:a.id})}; }, "Group sessions into story arcs, each with its own notes and lore."));
@@ -1387,7 +2082,7 @@ function renderArc(v, a){
   if (a.storySoFar) { const d = el("div","story", a.storySoFar); sf.append(d, el("p","help","Updated each time you file session notes for this arc.")); }
   else sf.append(el("p","help","Fills in automatically when you file session notes for this arc."));
   v.append(sf);
-  const ns = lsec("Arc notes"); const ta = el("textarea","ta"); ta.value = a.summary || ""; ta.placeholder = "What this arc is about, where it's headed, secrets, key NPCs and locations"; ta.style.minHeight = "180px";
+  const ns = lsec("Arc notes · DM only"); const ta = el("textarea","ta"); ta.value = a.summary || ""; ta.placeholder = "What this arc is about, where it's headed, secrets, key NPCs and locations"; ta.style.minHeight = "180px";
   ta.onchange = () => { a.summary = ta.value; put("arcs", a); toast("Saved"); };
   ns.append(ta); v.append(ns);
   if (!a.docs) a.docs = [];
@@ -1404,20 +2099,33 @@ function renderArc(v, a){
 }
 function organizeReview(scope, j, docTitle){
   const c = scope.campaign, w = scope.world, src = docTitle ? `from “${docTitle}”` : "", groups = [];
+  // sorting a DM-only document keeps everything it produces DM-only
+  const secret = !!scope.secret, field = secret ? "secrets" : "notes", tag = secret ? " (DM only)" : "";
+  const addTo = (obj, text) => { if (text && !str(obj[field]).includes(text)) obj[field] = (obj[field] ? obj[field] + "\n\n" : "") + text; };
   if (c) {
     const npcItems = [];
     for (const x of arr(j.npcs)) { const name = str(x.name).trim(); if (!name || findByName(c.pcs, name)) continue; const ex = findByName(c.npcs, name); const role = str(x.role).trim(), notes = str(x.notes).trim(); const status = STATUSES.includes(str(x.status).toLowerCase()) ? str(x.status).toLowerCase() : "";
-      npcItems.push({label:name, pill: ex ? "update" : "new", detail:[role, notes].filter(Boolean).join(" · "), apply: async () => { const cur = findByName(c.npcs, name); if (cur) { if (role && !cur.role) cur.role = role; if (status && !cur.status) cur.status = status; if (notes && !str(cur.notes).includes(notes)) cur.notes = (cur.notes ? cur.notes + "\n\n" : "") + notes; } else c.npcs.push({id:uid("n"), name, role, status, notes, firstSeen:src}); }}); }
-    groups.push({title:`NPCs for ${c.name}`, items:npcItems});
+      npcItems.push({label:name, pill: ex ? "update" : "new", detail:[role, notes].filter(Boolean).join(" · "), apply: async () => {
+        let cur = findByName(c.npcs, name);
+        if (!cur) { cur = {id:uid("n"), name, role: secret ? "" : role, status: secret ? "" : status, notes:"", secrets:"", firstSeen:src}; c.npcs.push(cur); }
+        if (!secret) { if (role && !cur.role) cur.role = role; if (status && !cur.status) cur.status = status; addTo(cur, notes); }
+        else addTo(cur, [role, notes].filter(Boolean).join(". "));
+      }}); }
+    groups.push({title:`NPCs for ${c.name}${tag}`, items:npcItems});
     const pcItems = [];
     for (const x of arr(j.pcs)) { const name = str(x.name).trim(); if (!name) continue; const ex = findByName(c.pcs, name); const desc = str(x.desc).trim(), notes = str(x.notes).trim();
-      pcItems.push({label:name, pill: ex ? "update" : "new", detail:[desc, notes].filter(Boolean).join(" · "), apply: async () => { const cur = findByName(c.pcs, name); if (cur) { if (desc && !cur.desc) cur.desc = desc; if (notes && !str(cur.notes).includes(notes)) cur.notes = (cur.notes ? cur.notes + "\n\n" : "") + notes; } else c.pcs.push({id:uid("p"), name, player:"", desc, notes}); }}); }
-    groups.push({title:`Player characters in ${c.name}`, items:pcItems});
+      pcItems.push({label:name, pill: ex ? "update" : "new", detail:[desc, notes].filter(Boolean).join(" · "), apply: async () => {
+        let cur = findByName(c.pcs, name);
+        if (!cur) { cur = {id:uid("p"), name, player:"", desc: secret ? "" : desc, notes:"", secrets:""}; c.pcs.push(cur); }
+        if (!secret && desc && !cur.desc) cur.desc = desc;
+        addTo(cur, secret ? [desc, notes].filter(Boolean).join(". ") : notes);
+      }}); }
+    groups.push({title:`Player characters in ${c.name}${tag}`, items:pcItems});
   }
-  const owner = c || w;
+  const owner = scope.loreOwner || c || w;
   const loreItems = [];
-  for (const x of arr(j.lore)) { const title = str(x.title).trim(), text = str(x.text).trim(); if (!title || !text) continue; loreItems.push({label:title, pill:str(x.category).toLowerCase() || "other", detail:text, apply: async () => appendLore(owner, x.category, title, text, "")}); }
-  groups.push({title:`Lore for ${owner.name}`, items:loreItems});
+  for (const x of arr(j.lore)) { const title = str(x.title).trim(), text = str(x.text).trim(); if (!title || !text) continue; loreItems.push({label:title, pill:str(x.category).toLowerCase() || "other", detail:text, apply: async () => appendLore(owner, x.category, title, text, "", secret)}); }
+  groups.push({title:`Lore for ${owner.name}${tag}`, items:loreItems});
   const have = new Set(str(w.names).split("\n").map(norm).filter(Boolean));
   const newNames = [...new Set(arr(j.names).map(x => str(x).trim()).filter(x => x && x.length <= 60 && !have.has(norm(x))))];
   if (newNames.length) groups.push({title:`Names & places for ${w.name}`, items:[{label:`Add ${newNames.length} name${newNames.length === 1 ? "" : "s"} to the spelling list`, detail:newNames.join(", "), apply: async () => { w.names = (str(w.names).trim() ? str(w.names).trimEnd() + "\n" : "") + newNames.join("\n"); }}]});
@@ -1435,6 +2143,12 @@ function renderEditor(v){
     const tf = el("label","field"); tf.append(el("span","lbl","Title"), ti);
     const bf = el("label","field"); bf.append(el("span","lbl","Text"), ta);
     v.append(tf, bf);
+    // DM-only switch
+    const sw = el("div","toggle secret-toggle"), swText = el("div");
+    swText.append(el("strong", null, "DM only"), el("div","help", "Keeps this out of player recaps and the player journal. Claude can still read it to follow the story; the built-in AI never sees it."));
+    const swL = el("label","switch"), swI = el("input"); swI.type = "checkbox"; swI.id = "docSecret"; swI.setAttribute("aria-label", "DM only"); swI.checked = d ? !!d.secret : !!e.newSecret; swL.append(swI, el("span"));
+    swI.onchange = async () => { if (d) { d.secret = swI.checked; await put(storeName, owner); toast(swI.checked ? "Marked DM only" : "No longer DM only"); render(); } else e.newSecret = swI.checked; };
+    sw.append(swText, swL); v.append(sw);
     const r = el("div","row");
     const imp = el("label","btn ghost","Load from file"); const fi = el("input"); fi.type = "file"; fi.hidden = true; fi.accept = ".txt,.md,.markdown,.docx,.pdf,text/plain";
     fi.onchange = async () => { const f = fi.files[0]; fi.value = ""; if (!f) return; try { const t = await fileText(f); ta.value = ta.value.trim() ? ta.value + "\n\n" + t : t; if (!ti.value.trim()) ti.value = f.name.replace(/\.[^.]+$/, ""); toast(`Loaded ${words(t).toLocaleString()} words`); } catch { toast("Couldn't read that file. Use .txt, .md, .docx or .pdf."); } };
@@ -1443,7 +2157,7 @@ function renderEditor(v){
       if (!ta.value.trim()) { ta.focus(); toast("Add some text first"); return null; }
       let doc = d;
       if (doc) { doc.title = ti.value.trim() || "Untitled"; doc.text = ta.value; doc.updatedAt = Date.now(); }
-      else { doc = {id:uid("d"), title:ti.value.trim() || "Untitled", text:ta.value, updatedAt:Date.now()}; owner.docs.push(doc); e.doc = doc.id; }
+      else { doc = {id:uid("d"), title:ti.value.trim() || "Untitled", text:ta.value, secret:!!swI.checked, updatedAt:Date.now()}; owner.docs.push(doc); e.doc = doc.id; }
       await put(storeName, owner); return doc;
     };
     r.append(btn("Save", "primary", async () => { if (await save()) { toast("Saved"); back(); } }), imp, btn("Cancel", "ghost", back));
@@ -1461,16 +2175,35 @@ function renderEditor(v){
       if (d) v.append(f);
     }
     if (d && world) {
-      const key = "org:" + d.id, scope = {world, campaign};
+      const key = "org:" + d.id, scope = {world, campaign, loreOwner: e.kind === "world" ? world : null, secret: !!d.secret};
+      const withRemoval = review => { review.groups.push({title:"Original document", items:[{label:`Remove “${d.title}” after filing`, detail:"The sorted entries keep all of its text, so Claude won't read it twice.", checked:false, apply: async () => { owner.docs = owner.docs.filter(x => x.id !== d.id); await put(storeName, owner); S.lib.edit = null; }}]}); return review; };
+      const curDoc = () => ({title:ti.value.trim() || d.title, text:ta.value || d.text});
       if (S.reviews[key]) reviewCard(v, key, S.reviews[key]);
-      else exchangeCard(v, {key, title:"Organize with Claude", help:`Sorts this document into ${campaign ? "NPCs, player characters, " : ""}lore entries and spellings${campaign ? ` for ${campaign.name}` : ` for ${world.name}`}. Free with any Claude account. The document itself stays as it is.`,
-        prompts: () => organizePrompts(scope, {title:ti.value || d.title, text:ta.value || d.text}), onReply: j => organizeReview(scope, j, d.title)});
+      else {
+        const target = campaign ? `NPCs and lore for ${campaign.name}` : `lore for ${world.name}`;
+        const card = el("div","card");
+        card.append(el("strong", null, "Sort this document"), el("p","help", `Splits it into entries by its headings, files each one under Places, Factions, History and so on, and pulls out ${target} plus the names list for spelling. Nothing is changed until you review and save.`));
+        card.append(jobBlock("lo:" + d.id, "Sort on this phone", "primary", async jk => {
+          const j = await localOrganize(scope, curDoc(), {dl:dlMsg(jk), step:(msg, f) => jobSet(jk, msg, f)});
+          S.reviews[key] = withRemoval(organizeReview(scope, j, d.title)); jobSet(jk, "Sorted. Review it above, then save.", null);
+        }));
+        const qs = el("div","row");
+        qs.append(btn("Quick sort (no AI)", "ghost", () => { S.reviews[key] = withRemoval(organizeReview(scope, quickOrganize(scope, curDoc()), d.title)); render(); }), el("span","meta grow", "Instant. Uses headings and “Name — description” lines."));
+        card.append(qs);
+        v.append(card);
+        const more = el("details","more"); more.append(el("summary", null, "Or use Claude instead (best quality)"));
+        const inner = el("div"); inner.style.marginTop = "8px";
+        exchangeCard(inner, {key, title:"Organize with Claude", help:`Sorts this document into ${campaign ? "NPCs, player characters, " : ""}lore entries and spellings through copy and paste. Free with any Claude account.`,
+          prompts: () => organizePrompts(scope, curDoc()), onReply: j => withRemoval(organizeReview(scope, j, d.title))});
+        more.append(inner); v.append(more);
+      }
     }
     if (!d) v.append(el("p","help","Save it first, then open it again to sort it into NPCs, characters and lore with Claude."));
     if (d) { const del = btn("Delete this lore", "danger", () => arm(del, "Tap again to delete", async () => { owner.docs = owner.docs.filter(x => x.id !== d.id); await put(storeName, owner); back(); })); v.append(del); }
     v.append(el("p","help", "Claude reads lore as private background when writing notes. It never puts lore in the player recap unless it came up at the table."));
     return;
   }
+  if (e.type === "journal") return renderJournal(v, e);
   const c = S.campaigns.get(e.id); if (!c) return back();
   const isPc = e.type === "pc"; const list = isPc ? c.pcs : c.npcs;
   const it = e.item ? list.find(x => x.id === e.item) : null;
@@ -1485,18 +2218,96 @@ function renderEditor(v){
     for (const [val, lab] of [["","Not set"],["alive","Alive"],["dead","Dead"],["missing","Missing"],["unknown","Unknown"]]) { const o = el("option", null, lab); o.value = val; status.append(o); }
     status.value = (it && it.status) || ""; f.append(el("span","lbl","Status"), status); v.append(f);
   }
-  const notes = mk(isPc ? "Backstory, goals, secrets, session history" : "Notes, history, what the party knows", it && it.notes, "", true);
+  const notes = mk(isPc ? "Backstory, goals, session history" : "Notes, history, what the party knows", it && it.notes, "", true);
+  const secrets = mk("DM-only secrets", it && it.secrets, isPc ? "What the player doesn't know yet: hidden heritage, twists, plans for their arc" : "Hidden motives, true identity, what they're really up to", true);
+  secrets.style.minHeight = "140px";
+  v.append(el("p","help", "Secrets are kept out of player recaps and the player journal. Claude can read them to follow the story; the built-in AI never sees them."));
   if (it && it.firstSeen) v.append(el("p","meta", "First seen: " + it.firstSeen));
   const r = el("div","row");
   r.append(btn("Save", "primary", async () => {
     if (!name.value.trim()) { name.focus(); toast("Add a name"); return; }
-    const data = isPc ? {name:name.value.trim(), player:player.value.trim(), desc:desc.value.trim(), notes:notes.value} : {name:name.value.trim(), role:role.value.trim(), status:status.value, notes:notes.value};
+    const data = isPc ? {name:name.value.trim(), player:player.value.trim(), desc:desc.value.trim(), notes:notes.value, secrets:secrets.value} : {name:name.value.trim(), role:role.value.trim(), status:status.value, notes:notes.value, secrets:secrets.value};
     if (it) Object.assign(it, data); else list.push({id:uid(isPc ? "p" : "n"), ...data});
     await put("campaigns", c); toast("Saved"); back();
   }), btn("Cancel", "ghost", back));
   v.append(r);
   if (it) { const del = btn(`Remove ${isPc ? "character" : "NPC"}`, "danger", () => arm(del, "Tap again to remove", async () => { const i = list.indexOf(it); if (i >= 0) list.splice(i, 1); await put("campaigns", c); back(); })); v.append(del); }
 }
+/* ---------- player journal: every player-safe recap in the campaign, in order ---------- */
+function journalData(c, learned){
+  const arcName = id => (id && S.arcs.get(id) ? S.arcs.get(id).name : "");
+  const all = chrono(c.id), entries = [], missing = [], flagged = [];
+  for (const s of all) {
+    if (!s.notes || !str(s.notes.playerRecap).trim()) { missing.push(s); continue; }
+    const R1 = findLeaks(c, s.notes.playerRecap), R2 = learned ? findLeaks(c, (s.notes.partyLearned || []).join("\n")) : {names:[], phrases:0};
+    const recapBad = (R1.names.length || R1.phrases) && s.notes.leakOk !== leakKey(R1), learnedBad = R2.names.length || R2.phrases;
+    if (recapBad || learnedBad) flagged.push({s, L:{names:[...new Set([...(recapBad ? R1.names : []), ...R2.names])], phrases:(recapBad ? R1.phrases : 0) + R2.phrases}});
+    entries.push({s, arc:arcName(s.arcId), recap:s.notes.playerRecap.trim(), learned: learned ? (s.notes.partyLearned || []) : []});
+  }
+  return {entries, missing, flagged};
+}
+function journalText(c, J2){
+  let t = `${c.name} · Player journal\n`, arc = null;
+  for (const e of J2.entries) {
+    if (e.arc !== arc) { arc = e.arc; if (arc) t += `\n\n${arc.toUpperCase()}\n`; }
+    t += `\n${titleLine(e.s)}${e.s.date ? ` (${fmtDate(e.s.date)})` : ""}\n${e.recap}\n`;
+    if (e.learned.length) t += "What we learned:\n" + e.learned.map(x => "• " + x).join("\n") + "\n";
+  }
+  return t.trim() + "\n";
+}
+function journalHTML(c, J2){
+  let h = `<h1>${esc(c.name)} · Player journal</h1>`, arc = null;
+  for (const e of J2.entries) {
+    if (e.arc !== arc) { arc = e.arc; if (arc) h += `<h2 style="color:#1f8a80">${esc(arc)}</h2>`; }
+    h += `<h3>${esc(titleLine(e.s))}</h3>${e.s.date ? `<p><em>${esc(fmtDate(e.s.date))}</em></p>` : ""}` + e.recap.split(/\n+/).filter(x => x.trim()).map(p => `<p>${esc(p)}</p>`).join("");
+    if (e.learned.length) h += `<p><strong>What we learned</strong></p><ul>${e.learned.map(x => `<li>${esc(x)}</li>`).join("")}</ul>`;
+  }
+  return h;
+}
+function journalMD(c, J2){
+  let t = `# ${c.name} · Player journal\n`, arc = null;
+  for (const e of J2.entries) {
+    if (e.arc !== arc) { arc = e.arc; if (arc) t += `\n## ${arc}\n`; }
+    t += `\n### ${titleLine(e.s)}\n${e.s.date ? `_${fmtDate(e.s.date)}_\n\n` : "\n"}${e.recap}\n`;
+    if (e.learned.length) t += "\n**What we learned**\n\n" + e.learned.map(x => "- " + x).join("\n") + "\n";
+  }
+  return t;
+}
+function renderJournal(v, e){
+  const c = S.campaigns.get(e.id); if (!c) { S.lib.edit = null; return render(); }
+  const J2 = journalData(c, e.learned !== false);
+  v.append(el("span","eyebrow", `${c.name} · for the players`), el("h2","title", "Player journal"));
+  v.append(el("p","help", "Every session's player recap in order, grouped by arc. It only uses the player recaps (and what the party learned), never your DM notes."));
+  const tg = el("div","toggle"); const tl = el("span", null, "Include “What we learned” lists");
+  const sl = el("label","switch"), si = el("input"); si.type = "checkbox"; si.id = "jLearned"; si.checked = e.learned !== false; si.setAttribute("aria-label", "Include what we learned"); sl.append(si, el("span"));
+  si.onchange = () => { e.learned = si.checked; render(); }; tg.append(tl, sl); v.append(tg);
+  if (J2.flagged.length) {
+    const w = el("div","card warn"); w.append(el("strong", null, "Check before sharing"),
+      el("p","help", `${J2.flagged.length} recap${J2.flagged.length === 1 ? " mentions" : "s mention"} names or phrases that only appear in DM-only material:`));
+    const ul = el("ul","items");
+    for (const f of J2.flagged) { const li = el("li"); const b = el("button","btn sm ghost", "Fix"); b.onclick = () => { openSession(f.s.id); S.view = "notes"; render(); };
+      const sp = el("span", null, `${titleLine(f.s)}: ${[f.L.names.map(n => `“${n}”`).join(", "), f.L.phrases ? `${f.L.phrases} copied phrase${f.L.phrases === 1 ? "" : "s"}` : ""].filter(Boolean).join(" and ")}`); sp.style.flex = "1"; li.append(sp, b); ul.append(li); }
+    w.append(ul); v.append(w);
+  }
+  if (!J2.entries.length) { v.append(el("div","empty", "No player recaps yet. They appear here once you've made notes for a session.")); return; }
+  const r = el("div","row");
+  const guard = (b, fn) => () => J2.flagged.length ? arm(b, "Has DM-only material · tap again", fn) : fn();
+  const b1 = btn("Copy", "primary"); b1.onclick = guard(b1, () => copyRich(journalText(c, J2), journalHTML(c, J2)));
+  const b2 = btn("Share"); b2.onclick = guard(b2, () => share(`${c.name} · Player journal`, journalText(c, J2)));
+  const b3 = btn("Save as file", "ghost"); b3.onclick = guard(b3, () => saveFile(`${slug(c.name)}-player-journal.md`, journalMD(c, J2), "text/markdown"));
+  r.append(b1, b2, b3); v.append(r);
+  if (J2.missing.length) v.append(el("p","meta", `${J2.missing.length} session${J2.missing.length === 1 ? " has" : "s have"} no player recap yet and ${J2.missing.length === 1 ? "isn't" : "aren't"} included.`));
+  const box = el("div","journal"); let arc = null;
+  for (const en of J2.entries) {
+    if (en.arc !== arc) { arc = en.arc; if (arc) box.append(el("div","arc", arc)); }
+    box.append(el("h3", null, titleLine(en.s)));
+    if (en.s.date) box.append(el("span","jd", fmtDate(en.s.date)));
+    box.append(prose(en.recap));
+    if (en.learned.length) box.append(listEl(en.learned, (li, x) => li.append(el("span", null, x))));
+  }
+  v.append(box);
+}
+
 async function deleteCampaign(c){
   for (const s of [...S.sessions.values()].filter(s => s.campaignId === c.id)) {
     if (S.sessId === s.id) { if (R.on) await stopRecording(); if (L.on) stopCaptions(); S.sessId = null; }
@@ -1534,7 +2345,7 @@ async function importAny(f){
       for (const x of arr(j.campaigns)) { S.campaigns.set(x.id, x); await store.put("campaigns", x); }
       for (const x of arr(j.arcs)) { S.arcs.set(x.id, x); await store.put("arcs", x); }
       for (const x of arr(j.sessions)) { if (x.arcId === undefined) x.arcId = null; S.sessions.set(x.id, x); await store.put("sessions", x); }
-      if (j.settings && typeof j.settings === "object") { S.set = {...S.set, wModel:j.settings.wModel || S.set.wModel, wEngine:j.settings.wEngine || S.set.wEngine, lang:j.settings.lang || S.set.lang}; saveSet(); }
+      if (j.settings && typeof j.settings === "object") { S.set = {...S.set, wModel:j.settings.wModel || S.set.wModel, wEngine:j.settings.wEngine || S.set.wEngine, lang:j.settings.lang || S.set.lang, aiModel:j.settings.aiModel || S.set.aiModel}; saveSet(); }
       await migrate(); S.view = "library"; S.lib = {w:null, c:null, a:null, edit:null, q:""}; render(); toast("Backup restored"); return;
     }
     if (j && j.type === "session-scribe-world" && j.world) {
@@ -1568,8 +2379,22 @@ function renderSettings(){
   const sel = $("wModel");
   if (!sel.options.length) for (const m of MODELS) { const o = el("option", null, `${m.label} (${m.size})`); o.value = m.k; sel.append(o); }
   sel.value = modelInfo().k; $("wEngine").value = S.set.wEngine || "auto"; $("lang").value = S.set.lang || "en-US";
+  const ai = $("aiModel");
+  if (!ai.options.length) for (const m of LLMS) { const o = el("option", null, `${m.label} (${m.size})`); o.value = m.k; ai.append(o); }
+  ai.value = llmInfo().k;
   renderStorage();
 }
+$("aiModel").onchange = e => { S.set.aiModel = e.target.value; saveSet(); $("aiDlMeta").textContent = ""; };
+$("aiDownload").onclick = async () => {
+  if (J.busy) { toast("Something else is running. Wait for it to finish."); return; }
+  const m = $("aiDlMeta"), bar = $("aiDlBar"), fill = $("aiDlFill"); m.classList.remove("err","ok");
+  $("aiDownload").disabled = true; m.textContent = "Getting ready…"; keepAwake(); J.busy = true;
+  try {
+    await getLLM((l, t) => { bar.hidden = false; fill.style.width = Math.round(l / t * 100) + "%"; m.textContent = `Downloading ${mb(l)} of ${mb(t)}…`; });
+    bar.hidden = true; m.textContent = `Ready · runs on the ${AI.device === "webgpu" ? "graphics chip" : "processor (slow)"}`; m.classList.add("ok");
+  } catch (e) { bar.hidden = true; m.textContent = aiErr(e); m.classList.add("err"); }
+  J.busy = false; $("aiDownload").disabled = false; renderStorage();
+};
 async function renderStorage(){
   try { const est = navigator.storage && navigator.storage.estimate ? await navigator.storage.estimate() : null; $("storeMeta").textContent = est ? `This app is using ${mb(est.usage || 0)} on this phone, including downloaded models and recordings.` : ""; } catch { $("storeMeta").textContent = ""; }
 }
@@ -1586,15 +2411,48 @@ $("wDownload").onclick = async () => {
   $("wDownload").disabled = false; renderStorage();
 };
 $("wClear").onclick = () => arm($("wClear"), "Tap again to remove", async () => {
-  try { if (W.asr) { try { await W.asr.dispose(); } catch {} W.asr = null; W.key = null; } const keys = await caches.keys(); for (const k of keys) if (/transformers/i.test(k)) await caches.delete(k); toast("Downloaded models removed"); } catch { toast("Couldn't remove the models"); }
+  try { await freeASR(); await freeLLM(); const keys = await caches.keys(); for (const k of keys) if (/transformers/i.test(k)) await caches.delete(k); toast("Downloaded models removed"); } catch { toast("Couldn't remove the models"); }
   renderStorage();
 });
 $("bExport").onclick = () => saveFile(`session-scribe-backup-${todayISO()}.json`, JSON.stringify({type:"session-scribe-backup", version:3, exportedAt:Date.now(), settings:S.set, worlds:[...S.worlds.values()], campaigns:[...S.campaigns.values()], arcs:[...S.arcs.values()], sessions:[...S.sessions.values()]}));
 
+/* ---------- iPhone layout ---------- */
+// Some iOS 26 releases shrink a home-screen app's page so it stops above the home indicator (the
+// system paints that strip itself) yet still report the full bottom inset. Measure the real page
+// against the screen and drop the bottom inset when the system has already taken that space.
+function fixViewport(){
+  const root = document.documentElement;
+  const a = document.activeElement; if (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && a.type !== "checkbox" && a.type !== "file") return; // keyboard skews the numbers
+  const probe = document.createElement("div");
+  probe.style.cssText = "position:fixed;top:0;left:0;width:0;height:0;visibility:hidden;pointer-events:none;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)";
+  document.body.append(probe);
+  const cs = getComputedStyle(probe), top = parseFloat(cs.paddingTop) || 0, bottom = parseFloat(cs.paddingBottom) || 0; probe.remove();
+  const standalone = navigator.standalone === true || matchMedia("(display-mode: standalone)").matches;
+  const portrait = innerHeight >= innerWidth;
+  const screenH = portrait ? Math.max(screen.width, screen.height) : Math.min(screen.width, screen.height);
+  const gap = screenH - innerHeight;
+  // page runs under the status bar (top inset > 0) but stops short of the bottom: the system owns the bottom strip
+  if (standalone && bottom > 0 && top >= 20 && gap >= 20) root.style.setProperty("--safe-bottom", Math.max(0, bottom - gap) + "px");
+  else root.style.removeProperty("--safe-bottom");
+  requestAnimationFrame(setHdr);
+}
+// track the header's full height (padding included, which changes with the status bar) so content starts below it
+const setHdr = () => document.documentElement.style.setProperty("--hdr", document.querySelector("header.top").offsetHeight + "px");
+const hdrObs = "ResizeObserver" in window ? new ResizeObserver(setHdr) : null;
+if (hdrObs) { try { hdrObs.observe(document.querySelector("header.top"), {box:"border-box"}); } catch { hdrObs.observe(document.querySelector("header.top")); } }
+addEventListener("resize", () => setTimeout(fixViewport, 50));
+addEventListener("orientationchange", () => setTimeout(fixViewport, 300));
+addEventListener("pageshow", fixViewport);
+// slide the tab bar away while the keyboard is up
+const isTextField = t => t && (t.tagName === "TEXTAREA" || (t.tagName === "INPUT" && !["checkbox","radio","file","button","submit"].includes(t.type)) || t.isContentEditable);
+document.addEventListener("focusin", e => { if (isTextField(e.target)) document.body.classList.add("typing"); });
+document.addEventListener("focusout", () => setTimeout(() => { if (!isTextField(document.activeElement)) { document.body.classList.remove("typing"); setTimeout(fixViewport, 350); } }, 60));
+fixViewport();
+
 /* ---------- boot ---------- */
 (async () => {
   for (const [n, m] of [["worlds", S.worlds], ["campaigns", S.campaigns], ["arcs", S.arcs], ["sessions", S.sessions]]) { try { for (const x of await store.all(n)) m.set(x.id, x); } catch {} }
-  try { const st = await store.get("kv", "settings"); if (st) S.set = {...S.set, wModel:st.wModel || S.set.wModel, wEngine:st.wEngine || S.set.wEngine, lang:st.lang || S.set.lang}; } catch {}
+  try { const st = await store.get("kv", "settings"); if (st) S.set = {...S.set, wModel:st.wModel || S.set.wModel, wEngine:st.wEngine || S.set.wEngine, lang:st.lang || S.set.lang, aiModel:st.aiModel || S.set.aiModel}; } catch {}
   await migrate().catch(() => {});
   for (const s of S.sessions.values()) if (s.arcId === undefined) s.arcId = null;
   try { const a = await store.get("kv", "active"); if (a && S.sessions.has(a.sessId)) S.sessId = a.sessId; } catch {}

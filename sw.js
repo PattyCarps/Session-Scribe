@@ -2,7 +2,7 @@
 // App pages: network first (so updates arrive), cached copy as fallback.
 // lib/ (AI engine, fonts, readers): cached once and reused; their file names change when they're updated.
 // AI models are cached by the AI engine itself; this file never touches that cache.
-const CACHE = "session-scribe-v7";
+const CACHE = "session-scribe-v8";
 const LIB_CACHE = "session-scribe-lib-2";
 const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png"];
 

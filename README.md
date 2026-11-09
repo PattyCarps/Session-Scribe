@@ -22,6 +22,7 @@ No file in this folder is over 25 MB, so either free host works.
 1. Open your link in **Safari**, then tap **Share → Add to Home Screen**.
 2. Open it from the new icon.
 3. On Wi-Fi, go to **Settings** and tap **Download model now** under both **Whisper** and **Built-in AI**.
+   Keep the app open while it downloads. If the download gets interrupted, tap the button again and it picks up where it left off.
 
 ## Organizing: Worlds → Campaigns → Arcs → Sessions
 
@@ -73,6 +74,8 @@ On a campaign's page, **Player journal** collects every session's player recap i
 - **Built-in AI:** Qwen2.5 0.5B (fastest), Llama 3.2 1B (recommended), Gemma 3 1B, or Qwen2.5 1.5B (best, heaviest). The built-in AI is a small model: good for a solid recap and for filing names, but it misses details that Claude catches.
 
 Only one model is loaded at a time, so transcribing and note-making don't fight over the phone's memory.
+
+Large-v3 Turbo and the biggest built-in AI models can be more than an iPhone will hold in memory. If a model doesn't finish loading, the app notices the next time it opens and switches to the processor, which uses less memory. If it still won't load, pick a smaller model.
 
 ## Good to know
 
